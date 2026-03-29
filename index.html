@@ -1,14 +1,1 @@
-drop table if exists players;
 
-create table players (
-  id uuid primary key default gen_random_uuid(),
-  pid text unique not null,
-  data jsonb not null,
-  updated_at timestamptz default now()
-);
-
-alter table players enable row level security;
-create policy "herkes_okuyabilir" on players for select using (true);
-create policy "herkes_yazabilir" on players for insert with check (true);
-create policy "herkes_guncelleyebilir" on players for update using (true);
-create policy "herkes_silebilir" on players for delete using (true);
