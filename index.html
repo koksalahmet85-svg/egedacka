@@ -527,28 +527,21 @@ async function loadPlayersFromDB(){
   return JSON.parse(JSON.stringify(SEED));
 }
 
-// player.id'yi DB'de anahtar olarak kullan — text olarak sakla
+// player.id'yi DB'de anahtar olarak kullan
 async function savePlayerToDB(p){
-  // Önce var mı kontrol et
-  const existing=await sbFetch('/players?pid=eq.'+encodeURIComponent(p.id)+'&select=pid');
-  if(existing&&existing.length>0){
-    // Güncelle
-    await sbFetch('/players?pid=eq.'+encodeURIComponent(p.id),{
-      method:'PATCH',
-      body:JSON.stringify({data:p,updated_at:new Date().toISOString()})
-    });
-  } else {
-    // Yeni kayıt
-    await sbFetch('/players',{
-      method:'POST',
-      headers:{'Prefer':'return=minimal'},
-      body:JSON.stringify({pid:p.id,data:p,updated_at:new Date().toISOString()})
-    });
-  }
+  const pid=String(p.id);
+  // UPSERT — varsa güncelle, yoksa ekle (en güvenilir yöntem)
+  await sbFetch('/players',{
+    method:'POST',
+    headers:{
+      'Prefer':'resolution=merge-duplicates,return=minimal'
+    },
+    body:JSON.stringify({pid:pid,data:p,updated_at:new Date().toISOString()})
+  });
 }
 
 async function deletePlayerFromDB(pid){
-  await sbFetch('/players?pid=eq.'+encodeURIComponent(pid),{method:'DELETE'});
+  await sbFetch('/players?pid=eq.'+String(pid),{method:'DELETE'});
 }
 
 // İlk yüklemede SEED'i DB'ye aktar
@@ -559,8 +552,8 @@ async function seedDBIfEmpty(){
       for(const p of SEED){
         await sbFetch('/players',{
           method:'POST',
-          headers:{'Prefer':'return=minimal'},
-          body:JSON.stringify({pid:p.id,data:p,updated_at:new Date().toISOString()})
+          headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+          body:JSON.stringify({pid:String(p.id),data:p,updated_at:new Date().toISOString()})
         });
       }
     }
