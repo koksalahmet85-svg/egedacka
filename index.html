@@ -166,12 +166,7 @@ body{font-family:'Barlow',sans-serif;background:var(--g100);color:var(--g800);he
 .mtab{padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--g600);border:none;background:transparent;transition:all .12s}
 .mtab.on{background:var(--gp);color:var(--gd)}
 .tab-c{display:none}.tab-c.on{display:block}
-.mfoot{padding:12px 20px;border-top:1px solid var(--g200);display:flex;gap:8px;justify-content:flex-end;align-items:center;position:sticky;bottom:0;background:#fff;z-index:10}
-/* tiiny.host banner için ekstra boşluk */
-@media(max-width:700px){
-  .mfoot{padding-bottom:70px}
-  .overlay .modal{padding-bottom:0}
-}
+.mfoot{padding:12px 20px;border-top:1px solid var(--g200);display:flex;gap:8px;justify-content:flex-end;align-items:center}
 .btn-cancel{padding:7px 16px;border-radius:8px;border:1.5px solid var(--g200);background:#fff;font-family:'Barlow',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--g600)}
 .btn-save{padding:7px 20px;border-radius:8px;border:none;background:var(--ga);color:#fff;font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 
@@ -245,7 +240,7 @@ body{font-family:'Barlow',sans-serif;background:var(--g100);color:var(--g800);he
   .ph-actions .btn{flex:1;justify-content:center;font-size:12px}
   #pdfQ{width:calc(100% - 20px);left:10px;right:10px}
   .overlay{padding:0;align-items:flex-end}
-  .overlay .modal{border-radius:18px 18px 0 0;max-height:80dvh;max-width:100%}
+  .overlay .modal{border-radius:18px 18px 0 0;max-height:95dvh;max-width:100%}
   .send-grid{grid-template-columns:1fr 1fr}
   .fgrid{grid-template-columns:repeat(2,1fr)}
   .mfoot{flex-wrap:wrap}
@@ -501,67 +496,54 @@ const SEED=[
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const SB_URL='https://kvokdkyrlwrhvqmvabfu.supabase.co';
 const SB_KEY='sb_publishable_2AkVSWUEllZAAK_QjNHyBA_o0apUE_c';
-const SB_HEADERS={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
-
-// UUID üret — birden fazla koç aynı anda oyuncu eklese bile çakışma olmaz
-function genId(){
-  return 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-}
+const SB_H={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 
 async function sbFetch(path,opts={}){
-  const res=await fetch(SB_URL+'/rest/v1'+path,{
-    headers:{...SB_HEADERS,...(opts.headers||{})},
-    method:opts.method||'GET',
-    body:opts.body
-  });
-  if(!res.ok){const err=await res.text();throw new Error(err);}
-  if(res.status===204)return null;
-  return res.json();
+  const r=await fetch(SB_URL+'/rest/v1'+path,{headers:{...SB_H,...(opts.headers||{})},method:opts.method||'GET',body:opts.body});
+  if(!r.ok){const e=await r.text();throw new Error(r.status+': '+e);}
+  if(r.status===204)return null;
+  return r.json();
 }
 
-async function loadPlayersFromDB(){
-  try{
-    const rows=await sbFetch('/players?order=updated_at.asc');
-    if(rows&&rows.length) return rows.map(r=>r.data);
-  }catch(e){console.warn('Supabase yüklenemedi:',e);}
-  return JSON.parse(JSON.stringify(SEED));
+// Tüm oyuncuları yükle
+async function dbLoad(){
+  const rows=await sbFetch('/players?order=updated_at.asc');
+  return (rows||[]).map(r=>r.data);
 }
 
-// player.id'yi DB'de anahtar olarak kullan
-async function savePlayerToDB(p){
+// Kaydet (upsert — varsa güncelle, yoksa ekle)
+async function dbSave(p){
   const pid=String(p.id);
-  // UPSERT — varsa güncelle, yoksa ekle (en güvenilir yöntem)
   await sbFetch('/players',{
     method:'POST',
-    headers:{
-      'Prefer':'resolution=merge-duplicates,return=minimal'
-    },
+    headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
     body:JSON.stringify({pid:pid,data:p,updated_at:new Date().toISOString()})
   });
 }
 
-async function deletePlayerFromDB(pid){
-  await sbFetch('/players?pid=eq.'+String(pid),{method:'DELETE'});
+// Sil
+async function dbDelete(id){
+  const pid=String(id);
+  await sbFetch('/players?pid=eq.'+pid,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
 }
 
-// İlk yüklemede SEED'i DB'ye aktar
-async function seedDBIfEmpty(){
-  try{
-    const rows=await sbFetch('/players?select=pid&limit=1');
-    if(rows&&rows.length===0){
-      for(const p of SEED){
-        await sbFetch('/players',{
-          method:'POST',
-          headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
-          body:JSON.stringify({pid:String(p.id),data:p,updated_at:new Date().toISOString()})
-        });
-      }
+// DB boşsa seed yükle
+async function dbSeedIfEmpty(){
+  const rows=await sbFetch('/players?select=pid&limit=1');
+  if(!rows||rows.length===0){
+    for(const p of SEED){
+      await sbFetch('/players',{
+        method:'POST',
+        headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+        body:JSON.stringify({pid:String(p.id),data:p,updated_at:new Date().toISOString()})
+      });
     }
-  }catch(e){console.warn('Seed kontrolü yapılamadı:',e);}
+  }
 }
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let players=[];
+let nextId=Date.now();
 let selTeam='all',query='',selId=null,editId=null,isNew=false;
 let charts={},pdfQueue=[],currentPdfUrl=null,currentPdfPlayer=null;
 let _pdfLibsLoaded=false;
@@ -578,53 +560,51 @@ const scoreColor=avg=>avg>=7?'#1b5e20':avg>=4?'#e65100':'#b71c1c';
 const slugify=n=>n.toLowerCase().replace(/[^a-z0-9]/gi,'-');
 const isMobile=()=>/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||window.innerWidth<700;
 
-// Yükleniyor ekranı
-function showSplash(msg){
-  document.getElementById('mainContent').innerHTML='<div class="welcome"><div class="loading-spin" style="width:40px;height:40px;border:4px solid rgba(45,90,61,.15);border-top-color:var(--ga);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div><h2 style="margin-top:16px">'+msg+'</h2></div>';
+async function resetAll(){
+  if(!confirm('Tüm veriler silinip başlangıç verisine dönülsün mü?'))return;
+  toast('Sıfırlanıyor…');
+  try{
+    await sbFetch('/players',{method:'DELETE',headers:{'Prefer':'return=minimal'}});
+    for(const p of SEED) await dbSave(p);
+    players=await dbLoad();
+    renderAll();
+    toast('✅ Sıfırlandı!');
+  }catch(e){toast('❌ Hata: '+e.message);}
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 async function init(){
-  // Takım dropdown doldur
   const sel=document.getElementById('eTakim');
   TEAMS.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);});
 
-  showSplash('Veriler yükleniyor…');
-  await seedDBIfEmpty();
-  players=await loadPlayersFromDB();
-  renderAll();
-  if(players.length){
-    document.getElementById('mainContent').innerHTML='<div class="welcome"><div class="wi">🏀</div><h2>Oyuncu seçin veya yeni oyuncu ekleyin</h2><p>Sol menüden takım seçip oyuncuya tıklayın.<br>Sağ üstten yeni oyuncu ekleyebilirsiniz.</p></div>';
+  // Yükleniyor göster
+  document.getElementById('mainContent').innerHTML='<div class="welcome"><div style="width:40px;height:40px;border:4px solid rgba(45,90,61,.15);border-top-color:var(--ga);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div><h2 style="margin-top:16px;opacity:.4">Veriler yükleniyor…</h2></div>';
+
+  try{
+    await dbSeedIfEmpty();
+    players=await dbLoad();
+  }catch(e){
+    console.error('DB hatası:',e);
+    players=JSON.parse(JSON.stringify(SEED));
+    toast('⚠️ Veritabanına bağlanılamadı');
   }
 
-  // Gerçek zamanlı güncelleme — her 15sn'de bir kontrol
+  nextId=Date.now();
+  renderAll();
+  document.getElementById('mainContent').innerHTML='<div class="welcome"><div class="wi">🏀</div><h2>Oyuncu seçin veya yeni oyuncu ekleyin</h2><p>Sol menüden takım seçip oyuncuya tıklayın.<br>Sağ üstten yeni oyuncu ekleyebilirsiniz.</p></div>';
+
+  // 15sn'de bir güncelleme kontrol et
   setInterval(async()=>{
     try{
-      const fresh=await loadPlayersFromDB();
-      const changed=JSON.stringify(fresh)!==JSON.stringify(players);
-      if(changed){
+      const fresh=await dbLoad();
+      if(JSON.stringify(fresh)!==JSON.stringify(players)){
         players=fresh;
-        nextId=players.reduce((m,p)=>Math.max(m,p.id),0)+1;
         renderAll();
-        // Seçili oyuncu varsa dashboard'u güncelle
-        if(selId){const p=players.find(x=>x.id===selId);if(p)renderDashboard(p);}
-        toast('🔄 Veriler güncellendi');
+        if(selId){const p=players.find(x=>String(x.id)===String(selId));if(p)renderDashboard(p);}
+        toast('🔄 Güncellendi');
       }
     }catch(e){}
   },15000);
-}
-async function resetAll(){
-  if(!confirm('Tüm veriler silinip başlangıç verisine dönülsün mü? Bu işlem geri alınamaz.'))return;
-  toast('Sıfırlanıyor…');
-  try{
-    await sbFetch('/players',{method:'DELETE',headers:{'Prefer':'return=minimal'}});
-    for(const p of SEED){
-      await sbFetch('/players',{method:'POST',body:JSON.stringify({data:p,updated_at:new Date().toISOString()})});
-    }
-    players=await loadPlayersFromDB();
-    renderAll();
-    toast('✅ Sıfırlandı!');
-  }catch(e){toast('❌ Sıfırlama hatası!');}
 }
 function renderAll(){buildTeams();renderList();}
 
@@ -657,18 +637,17 @@ function renderList(){
   if(!fp.length){el.innerHTML='<div style="padding:12px;color:rgba(255,255,255,.3);font-size:12px;text-align:center">Oyuncu bulunamadı</div>';return;}
   el.innerHTML=fp.map(p=>{
     const inQ=pdfQueue.includes(p.id);
-    const pid=JSON.stringify(String(p.id));
-    return '<div class="pi'+(p.id===selId?' on':'')+'" onclick="selectPlayer('+pid+')" data-id="'+p.id+'" style="padding-right:5px">'
+    return '<div class="pi'+(p.id===selId?' on':'')+'" onclick="selectPlayer('+p.id+')" data-id="'+p.id+'" style="padding-right:5px">'
       +'<div class="pi-av">'+initials(p.name)+'</div>'
       +'<div class="pi-info"><div class="pi-name">'+tc(p.name)+'</div><div class="pi-sub">'+p.birth_year+' · '+p.team+'</div></div>'
-      +'<button class="pi-pdf'+(inQ?' inq':'')+'" onclick="toggleQueue(event,'+pid+')" title="'+(inQ?'Kuyruktan çıkar':'PDF kuyruğuna ekle')+'">'+(inQ?'✓':'📄')+'</button>'
+      +'<button class="pi-pdf'+(inQ?' inq':'')+'" onclick="toggleQueue(event,'+p.id+')" title="'+(inQ?'Kuyruktan çıkar':'PDF kuyruğuna ekle')+'">'+(inQ?'✓':'📄')+'</button>'
       +'</div>';
   }).join('');
 }
 
 // ─── SELECT ───────────────────────────────────────────────────────────────────
 function selectPlayer(id){
-  selId=String(id);
+  selId=id;
   document.querySelectorAll('.pi').forEach(e=>e.classList.toggle('on',String(e.dataset.id)===String(id)));
   const p=players.find(x=>String(x.id)===String(id));
   if(p)renderDashboard(p);
@@ -681,7 +660,6 @@ function renderDashboard(p){
   const sc=scoreColor(avg);
   const teamP=players.filter(x=>x.team===p.team);
   const getTD=key=>teamP.map(x=>({name:tc((x.name.split(' ')[0]+' '+x.name.split(' ').slice(-1)[0])).slice(0,12),val:x.atletik[key],isMe:x.id===p.id})).filter(x=>x.val!=null);
-  const pid=JSON.stringify(String(p.id));
 
   document.getElementById('mainContent').innerHTML=`<div class="anim">
 <div class="ph">
@@ -699,9 +677,9 @@ function renderDashboard(p){
     <div class="ph-score-l">Fund. Ort.</div>
   </div>
   <div class="ph-actions">
-    <button class="btn btn-g" onclick="openEditPlayer(${pid})">✏️ Düzenle</button>
-    <button class="btn btn-r" onclick="generateSinglePDF(${pid})">📄 PDF Üret & Gönder</button>
-    <button class="btn btn-gh" onclick="toggleQueue(null,${pid});renderList()">${pdfQueue.includes(p.id)?'✓ Kuyrukta':'+ Kuyruğa Ekle'}</button>
+    <button class="btn btn-g" onclick="openEditPlayer(${p.id})">✏️ Düzenle</button>
+    <button class="btn btn-r" onclick="generateSinglePDF(${p.id})">📄 PDF Üret & Gönder</button>
+    <button class="btn btn-gh" onclick="toggleQueue(null,${p.id});renderList()">${pdfQueue.includes(p.id)?'✓ Kuyrukta':'+ Kuyruğa Ekle'}</button>
   </div>
 </div>
 
@@ -724,12 +702,12 @@ function renderDashboard(p){
 <div class="card">
   <div class="ch">
     <div class="ct">🏀 Basketbol Koç Yorumu</div>
-    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="openEditPlayer(${pid})">✏️</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="openEditPlayer(${p.id})">✏️</button>
   </div>
   <div class="cb">
     ${p.koc_notu
       ?`<div class="yorum bask"><div class="yorum-lbl">Antrenör: ${tc(p.coach)}</div><p>${p.koc_notu}</p></div>`
-      :`<div class="empty-yorum">Henüz basketbol koç yorumu girilmemiş.<br><button onclick="openEditPlayer(${pid})" style="margin-top:8px;background:var(--ga);color:#fff;border:none;padding:5px 14px;border-radius:7px;cursor:pointer;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600">+ Yorum Ekle</button></div>`
+      :`<div class="empty-yorum">Henüz basketbol koç yorumu girilmemiş.<br><button onclick="openEditPlayer(${p.id})" style="margin-top:8px;background:var(--ga);color:#fff;border:none;padding:5px 14px;border-radius:7px;cursor:pointer;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600">+ Yorum Ekle</button></div>`
     }
   </div>
 </div>
@@ -748,12 +726,12 @@ function renderDashboard(p){
 <div class="card">
   <div class="ch">
     <div class="ct">📊 Atletik Performans Yorumu</div>
-    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="openEditPlayer(${pid})">✏️</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="openEditPlayer(${p.id})">✏️</button>
   </div>
   <div class="cb">
     ${p.perf_yorumu
       ?`<div class="yorum atl"><div class="yorum-lbl">Performans Değerlendirmesi</div><p>${p.perf_yorumu}</p></div>`
-      :`<div class="empty-yorum">Henüz atletik performans yorumu girilmemiş.<br><button onclick="openEditPlayer(${pid})" style="margin-top:8px;background:#1e3a5f;color:#fff;border:none;padding:5px 14px;border-radius:7px;cursor:pointer;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600">+ Yorum Ekle</button></div>`
+      :`<div class="empty-yorum">Henüz atletik performans yorumu girilmemiş.<br><button onclick="openEditPlayer(${p.id})" style="margin-top:8px;background:#1e3a5f;color:#fff;border:none;padding:5px 14px;border-radius:7px;cursor:pointer;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600">+ Yorum Ekle</button></div>`
     }
   </div>
 </div>
@@ -828,7 +806,7 @@ function openAddPlayer(){
   document.getElementById('editModal').classList.add('open');
 }
 function openEditPlayer(id){
-  isNew=false; editId=String(id);
+  isNew=false; editId=id;
   const p=players.find(x=>String(x.id)===String(id));if(!p)return;
   document.getElementById('editTitle').textContent=tc(p.name)+' — Düzenle';
   document.getElementById('deleteBtn').style.display='flex';
@@ -871,7 +849,7 @@ async function savePlayer(){
   const fund={};
   fk.forEach((k,i)=>{fund[k]=si(document.getElementById(fi[i]).value)??0;});
   const p={
-    id:isNew?genId():String(editId),
+    id:isNew?nextId++:editId,
     name,team,
     coach:document.getElementById('eAntrenor').value.trim().toUpperCase()||'—',
     birth_year:si(document.getElementById('eYil').value),
@@ -898,39 +876,36 @@ async function savePlayer(){
       cmj_takim_ort:sf(document.getElementById('eCmjo').value)
     }
   };
-
-  // Önce UI'ı güncelle (hızlı feedback)
+  // Önce UI güncelle
   if(isNew){players.push(p);}
   else{const idx=players.findIndex(x=>String(x.id)===String(editId));if(idx>=0)players[idx]=p;}
   closeModal('editModal');
   renderAll();
   selectPlayer(p.id);
   toast('💾 Kaydediliyor…');
-
+  // DB'ye kaydet
   try{
-    await savePlayerToDB(p);
+    await dbSave(p);
     toast(isNew?'✅ Oyuncu eklendi!':'✅ Kaydedildi!');
   }catch(e){
-    toast('❌ Kaydetme hatası! Bağlantınızı kontrol edin.');
+    toast('❌ Kaydetme hatası: '+e.message);
   }
 }
 async function deletePlayer(){
   if(!editId)return;
   const p=players.find(x=>String(x.id)===String(editId));
-  if(!confirm(tc(p.name)+' silinsin mi?'))return;
+  if(!p||!confirm(tc(p.name)+' silinsin mi?'))return;
   players=players.filter(x=>String(x.id)!==String(editId));
   pdfQueue=pdfQueue.filter(id=>String(id)!==String(editId));
   closeModal('editModal');
   renderAll();
   selId=null;
-  document.getElementById('mainContent').innerHTML='<div class="welcome"><div class="wi">🏀</div><h2>Oyuncu silindi</h2><p>Sol menüden başka bir oyuncu seçin.</p></div>';
+  document.getElementById('mainContent').innerHTML='<div class="welcome"><div class="wi">🏀</div><h2>Oyuncu silindi</h2></div>';
   toast('🗑️ Siliniyor…');
   try{
-    await deletePlayerFromDB(editId);
-    toast('🗑️ Oyuncu silindi');
-  }catch(e){
-    toast('❌ Silme hatası!');
-  }
+    await dbDelete(editId);
+    toast('🗑️ Silindi');
+  }catch(e){toast('❌ Silme hatası: '+e.message);}
 }
 
 // ─── PDF QUEUE ────────────────────────────────────────────────────────────────
