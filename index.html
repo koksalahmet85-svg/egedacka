@@ -657,19 +657,20 @@ function renderList(){
   if(!fp.length){el.innerHTML='<div style="padding:12px;color:rgba(255,255,255,.3);font-size:12px;text-align:center">Oyuncu bulunamadı</div>';return;}
   el.innerHTML=fp.map(p=>{
     const inQ=pdfQueue.includes(p.id);
-    return '<div class="pi'+(p.id===selId?' on':'')+'" onclick="selectPlayer('+p.id+')" data-id="'+p.id+'" style="padding-right:5px">'
+    const pid=JSON.stringify(String(p.id));
+    return '<div class="pi'+(p.id===selId?' on':'')+'" onclick="selectPlayer('+pid+')" data-id="'+p.id+'" style="padding-right:5px">'
       +'<div class="pi-av">'+initials(p.name)+'</div>'
       +'<div class="pi-info"><div class="pi-name">'+tc(p.name)+'</div><div class="pi-sub">'+p.birth_year+' · '+p.team+'</div></div>'
-      +'<button class="pi-pdf'+(inQ?' inq':'')+'" onclick="toggleQueue(event,'+p.id+')" title="'+(inQ?'Kuyruktan çıkar':'PDF kuyruğuna ekle')+'">'+(inQ?'✓':'📄')+'</button>'
+      +'<button class="pi-pdf'+(inQ?' inq':'')+'" onclick="toggleQueue(event,'+pid+')" title="'+(inQ?'Kuyruktan çıkar':'PDF kuyruğuna ekle')+'">'+(inQ?'✓':'📄')+'</button>'
       +'</div>';
   }).join('');
 }
 
 // ─── SELECT ───────────────────────────────────────────────────────────────────
 function selectPlayer(id){
-  selId=id;
-  document.querySelectorAll('.pi').forEach(e=>e.classList.toggle('on',parseInt(e.dataset.id)===id));
-  const p=players.find(x=>x.id===id);
+  selId=String(id);
+  document.querySelectorAll('.pi').forEach(e=>e.classList.toggle('on',String(e.dataset.id)===String(id)));
+  const p=players.find(x=>String(x.id)===String(id));
   if(p)renderDashboard(p);
 }
 
@@ -680,6 +681,7 @@ function renderDashboard(p){
   const sc=scoreColor(avg);
   const teamP=players.filter(x=>x.team===p.team);
   const getTD=key=>teamP.map(x=>({name:tc((x.name.split(' ')[0]+' '+x.name.split(' ').slice(-1)[0])).slice(0,12),val:x.atletik[key],isMe:x.id===p.id})).filter(x=>x.val!=null);
+  const pid=JSON.stringify(String(p.id));
 
   document.getElementById('mainContent').innerHTML=`<div class="anim">
 <div class="ph">
@@ -697,9 +699,9 @@ function renderDashboard(p){
     <div class="ph-score-l">Fund. Ort.</div>
   </div>
   <div class="ph-actions">
-    <button class="btn btn-g" onclick="openEditPlayer(${p.id})">✏️ Düzenle</button>
-    <button class="btn btn-r" onclick="generateSinglePDF(${p.id})">📄 PDF Üret & Gönder</button>
-    <button class="btn btn-gh" onclick="toggleQueue(null,${p.id});renderList()">${pdfQueue.includes(p.id)?'✓ Kuyrukta':'+ Kuyruğa Ekle'}</button>
+    <button class="btn btn-g" onclick="openEditPlayer(${pid})">✏️ Düzenle</button>
+    <button class="btn btn-r" onclick="generateSinglePDF(${pid})">📄 PDF Üret & Gönder</button>
+    <button class="btn btn-gh" onclick="toggleQueue(null,${pid});renderList()">${pdfQueue.includes(p.id)?'✓ Kuyrukta':'+ Kuyruğa Ekle'}</button>
   </div>
 </div>
 
@@ -722,12 +724,12 @@ function renderDashboard(p){
 <div class="card">
   <div class="ch">
     <div class="ct">🏀 Basketbol Koç Yorumu</div>
-    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="openEditPlayer(${p.id})">✏️</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="openEditPlayer(${pid})">✏️</button>
   </div>
   <div class="cb">
     ${p.koc_notu
       ?`<div class="yorum bask"><div class="yorum-lbl">Antrenör: ${tc(p.coach)}</div><p>${p.koc_notu}</p></div>`
-      :`<div class="empty-yorum">Henüz basketbol koç yorumu girilmemiş.<br><button onclick="openEditPlayer(${p.id})" style="margin-top:8px;background:var(--ga);color:#fff;border:none;padding:5px 14px;border-radius:7px;cursor:pointer;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600">+ Yorum Ekle</button></div>`
+      :`<div class="empty-yorum">Henüz basketbol koç yorumu girilmemiş.<br><button onclick="openEditPlayer(${pid})" style="margin-top:8px;background:var(--ga);color:#fff;border:none;padding:5px 14px;border-radius:7px;cursor:pointer;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600">+ Yorum Ekle</button></div>`
     }
   </div>
 </div>
@@ -746,12 +748,12 @@ function renderDashboard(p){
 <div class="card">
   <div class="ch">
     <div class="ct">📊 Atletik Performans Yorumu</div>
-    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="openEditPlayer(${p.id})">✏️</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="openEditPlayer(${pid})">✏️</button>
   </div>
   <div class="cb">
     ${p.perf_yorumu
       ?`<div class="yorum atl"><div class="yorum-lbl">Performans Değerlendirmesi</div><p>${p.perf_yorumu}</p></div>`
-      :`<div class="empty-yorum">Henüz atletik performans yorumu girilmemiş.<br><button onclick="openEditPlayer(${p.id})" style="margin-top:8px;background:#1e3a5f;color:#fff;border:none;padding:5px 14px;border-radius:7px;cursor:pointer;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600">+ Yorum Ekle</button></div>`
+      :`<div class="empty-yorum">Henüz atletik performans yorumu girilmemiş.<br><button onclick="openEditPlayer(${pid})" style="margin-top:8px;background:#1e3a5f;color:#fff;border:none;padding:5px 14px;border-radius:7px;cursor:pointer;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600">+ Yorum Ekle</button></div>`
     }
   </div>
 </div>
@@ -826,8 +828,8 @@ function openAddPlayer(){
   document.getElementById('editModal').classList.add('open');
 }
 function openEditPlayer(id){
-  isNew=false; editId=id;
-  const p=players.find(x=>x.id===id);if(!p)return;
+  isNew=false; editId=String(id);
+  const p=players.find(x=>String(x.id)===String(id));if(!p)return;
   document.getElementById('editTitle').textContent=tc(p.name)+' — Düzenle';
   document.getElementById('deleteBtn').style.display='flex';
   document.getElementById('eIsim').value=p.name||'';
@@ -869,7 +871,7 @@ async function savePlayer(){
   const fund={};
   fk.forEach((k,i)=>{fund[k]=si(document.getElementById(fi[i]).value)??0;});
   const p={
-    id:isNew?genId():(editId),
+    id:isNew?genId():String(editId),
     name,team,
     coach:document.getElementById('eAntrenor').value.trim().toUpperCase()||'—',
     birth_year:si(document.getElementById('eYil').value),
@@ -899,7 +901,7 @@ async function savePlayer(){
 
   // Önce UI'ı güncelle (hızlı feedback)
   if(isNew){players.push(p);}
-  else{const idx=players.findIndex(x=>x.id===editId);if(idx>=0)players[idx]=p;}
+  else{const idx=players.findIndex(x=>String(x.id)===String(editId));if(idx>=0)players[idx]=p;}
   closeModal('editModal');
   renderAll();
   selectPlayer(p.id);
@@ -914,10 +916,10 @@ async function savePlayer(){
 }
 async function deletePlayer(){
   if(!editId)return;
-  const p=players.find(x=>x.id===editId);
+  const p=players.find(x=>String(x.id)===String(editId));
   if(!confirm(tc(p.name)+' silinsin mi?'))return;
-  players=players.filter(x=>x.id!==editId);
-  pdfQueue=pdfQueue.filter(id=>id!==editId);
+  players=players.filter(x=>String(x.id)!==String(editId));
+  pdfQueue=pdfQueue.filter(id=>String(id)!==String(editId));
   closeModal('editModal');
   renderAll();
   selId=null;
