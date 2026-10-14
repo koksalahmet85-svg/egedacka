@@ -164,15 +164,27 @@ def aligned_window(base: list[Row], target: list[Row],
                     "season_only_months": sorted(m.isoformat()[:7] for m in season_only_months)}
 
 
-def economic_split(base: list[Row], target: list[Row], carry_months: int = 1
-                   ) -> tuple[list[Row], list[Row], frozenset[date]]:
-    """Baz dönemin son `carry_months` ayında alınan sezonluk peşin/taksit ödemelerini hedef
-    sezona taşır: Temmuz'da alınan "SEZONLUK PEŞİN" gelecek sezonun gelirdir (nakit önce gelir)."""
-    months = sorted({r.sheet_month for r in base})
-    tail = set(months[-carry_months:]) if carry_months else set()
-    moved = [r for r in base if r.sheet_month in tail and r.kind in SEASON_KINDS]
-    keep = [r for r in base if not (r.sheet_month in tail and r.kind in SEASON_KINDS)]
-    return keep, moved + list(target), frozenset(tail if moved else ())
+def _prev_month(d: date) -> date:
+    return date(d.year - 1, 12, 1) if d.month == 1 else date(d.year, d.month - 1, 1)
+
+
+def season_rows(rows: Iterable[Row], start: date, end: date, mode: str = "economic"
+                ) -> tuple[list[Row], frozenset[date]]:
+    """Bir sezonun satırları. `rows` sezon başından 1 ay önce başlayarak verilmelidir.
+
+    cash: defter sayfası sezon aralığındaysa sezona aittir.
+    economic: sezonluk plan (peşin/taksit) ödemesi sezon başından önceki ayda alındıysa
+    (erken kayıt: Temmuz) BU sezona; sezonun son ayında alındıysa GELECEK sezona aittir.
+    Sezon öncesi ayın aylık aidatları önceki sezonundur ve alınmaz.
+    Dönüş: (satırlar, yalnız sezonluk satırı taşınmış aylar)."""
+    first, last, prev = date(start.year, start.month, 1), date(end.year, end.month, 1), _prev_month(start)
+    rows = list(rows)
+    if mode == "cash":
+        return [r for r in rows if first <= r.sheet_month <= last], frozenset()
+    keep = [r for r in rows if first <= r.sheet_month <= last
+            and not (r.sheet_month == last and r.kind in SEASON_KINDS)]
+    carried = [r for r in rows if r.sheet_month == prev and r.kind in SEASON_KINDS]
+    return carried + keep, frozenset({prev} if carried else ())
 
 
 def _months_between(a: date, b: date) -> int:
@@ -198,25 +210,38 @@ def _ladders(rows: list[Row]) -> dict[str, dict[date, float]]:
     return ladder
 
 
-def _monthly_path(prices: dict[date, float], coverage: list[date]) -> tuple[float, float, int]:
-    """(bilinen ayların toplamı, tahmini ayların toplamı, tahmini ay sayısı).
-    Merdivende olmayan ay son bilinen fiyatla doldurulur (sezon içi zam yok varsayımı)."""
+def _monthly_path(prices: dict[date, float], coverage: list[date], hike_from: date | None = None,
+                  hike_pct: float = 0.0) -> dict[str, float]:
+    """12 ayı aylık ödemenin toplamı. Merdivende olmayan (gelecek) aylar son bilinen fiyatla
+    doldurulur; `hike_from` ve sonrasındaki gelecek aylara `hike_pct` zam uygulanır.
+
+    pre: zam öncesi tahmini aylar, post_base: zam uygulanacak aylar (zamsız fiyatla)."""
     known = sorted(prices)
-    known_sum = projected_sum = 0.0
+    known_sum = pre = post_base = 0.0
     projected, last = 0, None
     for m in coverage:
         if m in prices:
             last = prices[m]
             known_sum += last
+            continue
+        projected += 1
+        if last is None:  # kapsamın başı merdivenden önceyse ilk bilinen fiyat
+            last = prices[known[0]]
+        if hike_from is None or m >= hike_from:
+            post_base += last
         else:
-            projected += 1
-            if last is None:  # kapsamın başı merdivenden önceyse ilk bilinen fiyat
-                last = prices[known[0]]
-            projected_sum += last
-    return known_sum, projected_sum, projected
+            pre += last
+    return {"known": known_sum, "pre": pre, "post_base": post_base, "projected": projected,
+            "path": known_sum + pre + post_base * (1 + hike_pct)}
 
 
-def plan_tiers(rows: Iterable[Row], tiers: list[dict], coverage: list[date]) -> list[dict]:
+def _breakeven(price: float, mp: dict[str, float]) -> float | None:
+    """Zam uygulanacak aylarda aylık aidata ne kadar zam gelirse peşin aylıkla başabaş olur?"""
+    return (price - mp["known"] - mp["pre"]) / mp["post_base"] - 1 if mp["post_base"] else None
+
+
+def plan_tiers(rows: Iterable[Row], tiers: list[dict], coverage: list[date], hike_from: date | None = None,
+               hike_pct: float = 0.0) -> list[dict]:
     """Tanımlı sezonluk plan kademeleri (erken kayıt / standart / geç) için gerçekleşme.
 
     Oyuncunun sezonluk toplamı (peşin + taksitler) bir kademe fiyatına ±%1 yakınsa o
@@ -237,8 +262,9 @@ def plan_tiers(rows: Iterable[Row], tiers: list[dict], coverage: list[date]) -> 
     for group in sorted({t["group"] for t in tiers}):
         g_tiers = sorted((t for t in tiers if t["group"] == group), key=lambda t: t["price"])
         g_plans = [v for (g, _), v in plans.items() if g == group]
-        known_sum, projected_sum, projected = _monthly_path(ladder[group], coverage) if ladder.get(group) else (0, 0, 0)
-        path = known_sum + projected_sum
+        mp = _monthly_path(ladder[group], coverage, hike_from, hike_pct) if ladder.get(group) else \
+            {"known": 0.0, "pre": 0.0, "post_base": 0.0, "projected": 0, "path": 0.0}
+        path, projected = mp["path"], mp["projected"]
         matched_ids: set[int] = set()
         rows_out = []
         for t in g_tiers:
@@ -255,7 +281,7 @@ def plan_tiers(rows: Iterable[Row], tiers: list[dict], coverage: list[date]) -> 
                 "last_paid": dates[-1].isoformat() if dates else None,
                 "after_deadline": sum(d > vu for d in dates) if vu else None,
                 "discount_vs_monthly": 1 - t["price"] / path if path else None,
-                "breakeven_hike": (t["price"] - known_sum) / projected_sum - 1 if projected_sum else None,
+                "breakeven_hike": _breakeven(t["price"], mp),
             })
         others = [v for i, v in enumerate(g_plans) if i not in matched_ids]
         # Yalnız taksit ödemiş ve toplamı en yüksek kademenin altında kalan = taksiti sürüyor.
@@ -272,7 +298,8 @@ def plan_tiers(rows: Iterable[Row], tiers: list[dict], coverage: list[date]) -> 
     return out
 
 
-def upfront_vs_monthly(rows: Iterable[Row], coverage: list[date]) -> list[dict]:
+def upfront_vs_monthly(rows: Iterable[Row], coverage: list[date], hike_from: date | None = None,
+                       hike_pct: float = 0.0) -> list[dict]:
     """Sezonluk peşin fiyatı ↔ aynı 12 ayı aylık ödemenin toplamı.
 
     Aylık yol, defterden çıkan fiili fiyat merdivenidir (price_ladder). Henüz yaşanmamış
@@ -285,8 +312,8 @@ def upfront_vs_monthly(rows: Iterable[Row], coverage: list[date]) -> list[dict]:
                if r.group == group and r.kind == "SEASON_UPFRONT" and not r.scholarship]
         if len(ups) < 5:
             continue
-        known_sum, projected_sum, projected = _monthly_path(prices, coverage)
-        path = known_sum + projected_sum
+        mp = _monthly_path(prices, coverage, hike_from, hike_pct)
+        path, projected = mp["path"], mp["projected"]
         total_n = len(ups)
         # n<3 fiyat noktası kardeş/burs/özel anlaşma gürültüsüdür; plan fiyatı sayılmaz.
         points = [(pr, n) for pr, n in Counter(ups).most_common(3) if n >= 3]
@@ -298,7 +325,7 @@ def upfront_vs_monthly(rows: Iterable[Row], coverage: list[date]) -> list[dict]:
                 "price": pr, "n": n, "share": n / total_n,
                 "discount_vs_monthly": 1 - pr / path if path else None,
                 # Kalan aylarda aylık aidata ne kadar zam gelirse peşin aylıkla başabaş olur?
-                "breakeven_hike": (pr - known_sum) / projected_sum - 1 if projected_sum else None,
+                "breakeven_hike": _breakeven(pr, mp),
             } for pr, n in points],
         })
     return out
@@ -307,12 +334,12 @@ def upfront_vs_monthly(rows: Iterable[Row], coverage: list[date]) -> list[dict]:
 def compare(base_name: str, base: list[Row], target_name: str, target: list[Row],
             mode: str = "economic", base_coverage: list[date] | None = None,
             target_coverage: list[date] | None = None, base_tiers: list[dict] | None = None,
-            target_tiers: list[dict] | None = None) -> dict[str, Any]:
-    """mode='cash': dönemler defter sayfalarına göre (nakit esası).
-    mode='economic': sezonluk ödemeler ait oldukları sezona yazılır (önerilen kıyas)."""
-    season_only: frozenset[date] = frozenset()
-    if mode == "economic":
-        base, target, season_only = economic_split(base, target)
+            target_tiers: list[dict] | None = None, target_carried: frozenset[date] = frozenset(),
+            hike_from: date | None = None, hike_pct: float = 0.0) -> dict[str, Any]:
+    """Satırlar season_rows() ile hazırlanmış olmalıdır (mode orada uygulanır).
+    hike_from/hike_pct: hedef sezonda henüz yaşanmamış aylara uygulanacak zam senaryosu
+    (ör. Ocak'tan itibaren enflasyon oranında artış)."""
+    season_only = target_carried
     b_all, t_all = summarize(base), summarize(target)
     b_win, t_win, window = aligned_window(base, target, season_only)
     bw, tw = summarize(b_win), summarize(t_win)
@@ -385,10 +412,12 @@ def compare(base_name: str, base: list[Row], target_name: str, target: list[Row]
         # Temmuz aylık aidatı ise baz sezonun fiyat merdiveninde kalır).
         "season_plan_value": {
             "base": upfront_vs_monthly(base, base_coverage) if base_coverage else [],
-            "target": upfront_vs_monthly(target, target_coverage) if target_coverage else [],
+            "target": upfront_vs_monthly(target, target_coverage, hike_from, hike_pct) if target_coverage else [],
         },
         "plan_tiers": {
             "base": plan_tiers(base, base_tiers, base_coverage) if base_tiers and base_coverage else [],
-            "target": plan_tiers(target, target_tiers, target_coverage) if target_tiers and target_coverage else [],
+            "target": plan_tiers(target, target_tiers, target_coverage, hike_from, hike_pct)
+            if target_tiers and target_coverage else [],
         },
+        "hike_scenario": {"from": hike_from.isoformat() if hike_from else None, "pct": hike_pct},
     }

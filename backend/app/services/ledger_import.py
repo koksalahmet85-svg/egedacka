@@ -205,7 +205,8 @@ def classify(label: str, sheet_month: date) -> tuple[str, list[date], bool, bool
     """(tür, kapsanan aylar, burslu_mu, iptal_mi)."""
     f = fold(label)
     cancelled = "IPTAL" in f
-    scholarship = "BURS" in f
+    # Burs ve başarı indirimi: plan fiyatı/aylık fiyat merdiveni hesaplarına girmez.
+    scholarship = any(k in f for k in ("BURS", "BASARI", "INDIRIM"))
     months = []
     for m in _MONTH_RE.findall(f):
         d = resolve_month(m, sheet_month)

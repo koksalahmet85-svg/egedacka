@@ -32,27 +32,33 @@ interface Props {
 
 export function SeasonComparisonView({ initial, notReturned, base, target, error }: Props) {
   const [mode, setMode] = useState<"economic" | "cash">("economic");
+  const [hike, setHike] = useState(0); // Ocak'tan itibaren zam senaryosu (%)
   const [data, setData] = useState(initial);
   const [loading, setLoading] = useState(false);
-  const cache = useRef<Partial<Record<"economic" | "cash", SeasonComparison>>>({});
-  if (initial) cache.current.economic ??= initial;
+  const cache = useRef<Record<string, SeasonComparison>>({});
+  const key = `${mode}|${hike}`;
+  if (initial) cache.current["economic|0"] ??= initial;
 
   useEffect(() => {
     setData(initial);
-    cache.current = initial ? { economic: initial } : {};
+    cache.current = initial ? { "economic|0": initial } : {};
   }, [initial]); // yeni defter yüklenince (router.refresh) önbelleği sıfırla
 
   useEffect(() => {
-    const hit = cache.current[mode];
+    const hit = cache.current[key];
     if (hit) return setData(hit);
     const ac = new AbortController();
-    setLoading(true);
-    apiFetch<SeasonComparison>(`/ledger/compare?base=${base}&target=${target}&mode=${mode}`, { signal: ac.signal })
-      .then((d) => { cache.current[mode] = d; setData(d); })
-      .catch(() => {})
-      .finally(() => !ac.signal.aborted && setLoading(false));
-    return () => ac.abort();
-  }, [mode, base, target]);
+    // Yazarken her tuşta istek atma: 400 ms bekle (debounce), yeni değer gelirse öncekini iptal et.
+    const t = window.setTimeout(() => {
+      setLoading(true);
+      const q = new URLSearchParams({ base, target, mode, hike_pct: String(hike / 100) });
+      apiFetch<SeasonComparison>(`/ledger/compare?${q}`, { signal: ac.signal })
+        .then((d) => { cache.current[key] = d; setData(d); })
+        .catch(() => {})
+        .finally(() => !ac.signal.aborted && setLoading(false));
+    }, 400);
+    return () => { window.clearTimeout(t); ac.abort(); };
+  }, [key, mode, hike, base, target]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-6">
@@ -70,14 +76,15 @@ export function SeasonComparisonView({ initial, notReturned, base, target, error
           {error ?? "Veri yok."} Yönetici sezon tarih aralıklarını tanımladıktan sonra defteri yükleyin.
         </p>
       ) : (
-        <Body d={data} mode={mode} setMode={setMode} notReturned={notReturned} />
+        <Body d={data} mode={mode} setMode={setMode} hike={hike} setHike={setHike} notReturned={notReturned} />
       )}
     </div>
   );
 }
 
-function Body({ d, mode, setMode, notReturned }: {
-  d: SeasonComparison; mode: "economic" | "cash"; setMode: (m: "economic" | "cash") => void; notReturned: NotReturnedPlayer[];
+function Body({ d, mode, setMode, hike, setHike, notReturned }: {
+  d: SeasonComparison; mode: "economic" | "cash"; setMode: (m: "economic" | "cash") => void;
+  hike: number; setHike: (v: number) => void; notReturned: NotReturnedPlayer[];
 }) {
   const a = d.aligned;
   const w = a.window;
@@ -145,6 +152,19 @@ function Body({ d, mode, setMode, notReturned }: {
           </table>
         </section>
       </div>
+
+      <section className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface p-3 text-sm">
+        <label className="flex items-center gap-2">
+          Ocak'tan itibaren aidat zammı (enflasyon senaryosu)
+          <input type="number" min={0} max={200} step={1} value={hike}
+            onChange={(e) => setHike(Math.max(0, Math.min(200, Number(e.target.value) || 0)))}
+            className="w-20 rounded-md border border-line bg-page px-2 py-1 text-right" />%
+        </label>
+        <span className="text-xs text-muted">
+          Peşin ↔ aylık karşılaştırmasında henüz gelmemiş aylara uygulanır
+          {d.hike_scenario.from ? ` (${fmt.month(d.hike_scenario.from.slice(0, 7))} ve sonrası)` : ""}.
+        </span>
+      </section>
 
       <PlanValue d={d} />
       {d.plan_tiers.target.length > 0 && <PlanTiers name={d.target.name} groups={d.plan_tiers.target} />}
@@ -230,7 +250,7 @@ function PlanValue({ d }: { d: SeasonComparison }) {
       <h2 className="font-semibold">Sezonluk peşin ↔ 12 ay aylık ödeme</h2>
       <p className="mb-3 text-xs text-muted">
         Aylık yol, defterdeki fiili aylık aidat fiyatlarından hesaplanır. Henüz gelmemiş aylar son fiyatla
-        doldurulur (sezon içi zam yok varsayımı). Peşin, ancak aylık yoldan ucuzsa veli için avantajlıdır.
+        doldurulur; üstteki zam senaryosu Ocak'tan itibaren uygulanır. Başabaş zam: peşinin aylıkla eşitlendiği zam oranı.
       </p>
       <table className="tabular w-full min-w-[640px] text-sm">
         <thead className="text-left text-ink-2">
@@ -304,7 +324,7 @@ function PlanTiers({ name, groups }: { name: string; groups: SeasonComparison["p
                   <td colSpan={4} className="text-right">ödenen {fmt.tl(g.in_progress_amount)}</td>
                 </tr>
                 <tr className="border-t border-line">
-                  <td className="py-1">Kademe dışı fiyat</td><td /><td className="text-right">{fmt.n(g.other_price_players)}</td>
+                  <td className="py-1">Kademe dışı (başarı indirimi, kardeş, geç kayıt)</td><td /><td className="text-right">{fmt.n(g.other_price_players)}</td>
                   <td colSpan={4} className="text-right text-ink-2">
                     {g.other_price_points.map((p) => `${fmt.tl(p.price)} ×${p.n}`).join(" · ")}
                   </td>

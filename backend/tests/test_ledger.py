@@ -67,6 +67,7 @@ def test_helpers():
     kind, months, _, _ = classify("ARALIK+OCAK", date(2026, 1, 1))
     assert kind == "MULTI_MONTH" and months == [date(2025, 12, 1), date(2026, 1, 1)]
     assert classify("SEZONLUK 2. TAKSİT", date(2025, 10, 1))[0] == "SEASON_INSTALLMENT"
+    assert classify("SEZONLUK PEŞİN BAŞARI İNDİRİMİ", date(2026, 7, 1))[2] is True
     assert classify("EYLÜL YARIM AİDAT", date(2025, 9, 1))[0] == "PARTIAL"
     assert classify("YEŞİL TRİBÜN", date(2026, 10, 1))[0] == "EVENT"
     assert classify("TEKSTİL (GECEN SENE)", date(2026, 9, 1))[0] == "TEXTILE"
@@ -97,36 +98,43 @@ def test_parse_workbook(parsed):
     assert {"tarih", "tutar_uyumsuz", "tutar", "iptal", "sayfa_atlandi"} <= issues
 
 
-def _rows(parsed, lo, hi):
+def _all_rows(parsed):
     return [Row(r.sheet_month, r.paid_on, r.player_key, r.group, r.kind, tuple(r.covered_months), r.scholarship,
                 float(r.amount), float(r.dues_amount), float(r.textile_amount), r.channel, r.cancelled)
-            for r in parsed.records if lo <= r.sheet_month <= hi]
+            for r in parsed.records]
 
 
-def test_compare_cash_vs_economic(parsed):
-    base = _rows(parsed, date(2025, 7, 1), date(2026, 7, 1))
-    target = _rows(parsed, date(2026, 8, 1), date(2027, 7, 1))
+def test_season_rows_and_compare(parsed):
+    from app.services.season_analysis import season_rows
 
-    cash = compare("A", base, "B", target, "cash")
-    assert cash["base"]["total"] == 4300 + 72000 + 4700 + 4300 + 72000 + 9400 + 20000 + 5200 + 7450 + 119000
-    assert cash["aligned"]["window"]["months"] == ["2026-08"]
+    rows = _all_rows(parsed)
+    b0, b1, t0, t1 = date(2025, 8, 1), date(2026, 7, 31), date(2026, 8, 1), date(2027, 7, 31)
 
-    eco = compare("A", base, "B", target, "economic")
-    # Temmuz 26'daki 119.000 sezonluk peşin hedef sezona taşınır
+    # Kasa: yalnız sezon aralığındaki sayfalar. Temmuz 25 (önceki sezon) dışarıda, Temmuz 26 peşini içeride.
+    cb, _ = season_rows(rows, b0, b1, "cash")
+    assert sum(r.amount for r in cb if not r.cancelled) == 4300 + 72000 + 9400 + 20000 + 5200 + 7450 + 119000
+
+    # Ekonomik: Temmuz 25 erken kayıt peşini 25-26'ya girer, Temmuz 25 aylık aidatları girmez;
+    # Temmuz 26 peşini 26-27'ye taşınır.
+    eb, b_carried = season_rows(rows, b0, b1)
+    et, t_carried = season_rows(rows, t0, t1)
+    assert b_carried == {date(2025, 7, 1)} and t_carried == {date(2026, 7, 1)}
+    assert sum(r.amount for r in eb if not r.cancelled) == 72000 + 4300 + 72000 + 9400 + 20000 + 5200 + 7450
+    assert sum(r.amount for r in et) == 119000 + 14250 + 9000 + 60000
+
+    eco = compare("A", eb, "B", et, "economic", target_carried=t_carried)
     assert eco["target"]["season_plan"]["upfront_amount"] == 119000
-    assert eco["base"]["total"] == cash["base"]["total"] - 119000
     w = eco["aligned"]["window"]
     assert w["months"] == ["2026-07", "2026-08"] and w["season_only_months"] == ["2026-07"]
-    # Temmuz 25'ten yalnız sezonluk satır kıyasa girer (aylık TEMMUZ aidatları değil);
-    # hedefin son ödemesi 11 Ağustos → bazdaki 19 Ağustos peşin ödemesi pencere dışında kalır.
+    # Hedefin son ödemesi 11 Ağustos → bazda Temmuz 25 peşini (72.000) + 1 Ağustos aidatı kıyasa girer.
     assert w["last_month_cutoff_day"] == 11
     assert eco["aligned"]["season_plan_amount"]["base"] == 72000
-    # Oyuncu C Temmuz 26'da peşin ödedi → "dönmedi" sayılmaz
-    assert eco["retention"]["recent_retained"] >= 1
+    assert eco["aligned"]["total"]["base"] == 72000 + 4300
+    assert eco["retention"]["recent_retained"] >= 1  # C Temmuz 26'da peşin ödedi
 
 
 async def test_import_and_compare_api(client, admin, conn):
-    for name, s, e in (("2025-2026", "2025-07-01", "2026-07-31"), ("2026-2027", "2026-08-01", "2027-07-31")):
+    for name, s, e in (("2025-2026", "2025-08-01", "2026-07-31"), ("2026-2027", "2026-08-01", "2027-07-31")):
         await conn.execute("DELETE FROM seasons WHERE name=$1 AND NOT EXISTS (SELECT 1 FROM teams t WHERE t.season_id=seasons.id)", name)
         r = await client.put("/seasons", json={"name": name, "start_date": s, "end_date": e}, headers=admin)
         assert r.status_code == 200, r.text
@@ -189,6 +197,11 @@ def test_upfront_vs_monthly_12_month_coverage():
     assert p["price"] == 119000 and p["discount_vs_monthly"] == pytest.approx(1 - 119000 / 117900)
     # 119.000 - (9.000 + 9.900) = 100.100 → kalan 10 ayda %1,1 zam başabaş
     assert p["breakeven_hike"] == pytest.approx(100100 / 99000 - 1)
+
+    # Ocak 2027'den itibaren %20 zam senaryosu: Eki–Ara zamsız, Oca–Tem (7 ay) zamlı
+    (h,) = upfront_vs_monthly(rows, cov, date(2027, 1, 1), 0.20)
+    assert h["monthly_path"] == pytest.approx(9000 + 9900 + 3 * 9900 + 7 * 9900 * 1.2)
+    assert h["price_points"][0]["breakeven_hike"] == pytest.approx((119000 - 9000 - 4 * 9900) / (7 * 9900) - 1)
 
 
 def test_plan_tiers_early_bird_and_deadline():

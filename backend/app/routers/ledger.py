@@ -39,7 +39,7 @@ async def list_seasons(_: CurrentUser = Depends(require(*ANALYSIS_ROLES, Role.CO
 @router.put("/seasons", status_code=200)
 async def upsert_season(data: SeasonIn, _: CurrentUser = Depends(require(Role.ADMIN)),
                         conn: asyncpg.Connection = Depends(get_conn)):
-    """Sezon tanımı (ör. 2025-2026: 2025-07-01 → 2026-07-31). Analiz bu aralıkları kullanır."""
+    """Sezon tanımı (ör. 2025-2026: 2025-08-01 → 2026-07-31). Analiz bu aralıkları kullanır."""
     async with conn.transaction():
         if data.is_active:
             await conn.execute("UPDATE seasons SET is_active=false WHERE name <> $1", data.name)
@@ -109,21 +109,31 @@ async def anomalies(import_id: int | None = None, _: CurrentUser = Depends(requi
 
 @router.get("/ledger/compare")
 async def compare(base: str, target: str, mode: str = Query("economic", pattern="^(economic|cash)$"),
+                  hike_pct: float = Query(0.0, ge=0, le=2, description="Gelecek aylara zam senaryosu (0.25 = %25)"),
+                  hike_month: date | None = Query(None, description="Zammın başladığı ay; varsayılan sezonun Ocak ayı"),
                   _: CurrentUser = Depends(require(*ANALYSIS_ROLES)), conn: asyncpg.Connection = Depends(get_conn)):
-    """İki sezonun tahsilat karşılaştırması. mode=economic: sezonluk peşin ödeme ait olduğu sezona yazılır."""
+    """İki sezonun tahsilat karşılaştırması.
+    mode=economic: Temmuz'da (sezon öncesi ay) alınan sezonluk plan yeni sezona yazılır."""
     try:
         b0, b1 = await ledger_store.season_bounds(conn, base)
         t0, t1 = await ledger_store.season_bounds(conn, target)
     except LookupError as e:
         raise HTTPException(404, str(e)) from None
-    b_rows, t_rows = await ledger_store.load_rows(conn, b0, b1), await ledger_store.load_rows(conn, t0, t1)
+    # Sezon öncesi ay da okunur: erken kayıtla alınan sezonluk plan oradadır.
+    b_raw = await ledger_store.load_rows(conn, season_analysis._prev_month(b0), b1)
+    t_raw = await ledger_store.load_rows(conn, season_analysis._prev_month(t0), t1)
+    b_rows, _ = season_analysis.season_rows(b_raw, b0, b1, mode)
+    t_rows, t_carried = season_analysis.season_rows(t_raw, t0, t1, mode)
     if not b_rows or not t_rows:
         raise HTTPException(404, "Seçilen sezonlarda defter kaydı yok")
+    if hike_month is None:
+        hike_month = date(t0.year + 1, 1, 1) if t0.month > 1 else date(t0.year, 1, 1)
     # Sezonluk plan 12 ay kapsar: sezon bitişinden geriye 12 ay.
-    return season_analysis.compare(base, b_rows, target, t_rows, mode,
-                                   season_analysis.coverage_months(b1), season_analysis.coverage_months(t1),
-                                   await ledger_store.plan_prices(conn, base),
-                                   await ledger_store.plan_prices(conn, target))
+    return season_analysis.compare(
+        base, b_rows, target, t_rows, mode,
+        season_analysis.coverage_months(b1), season_analysis.coverage_months(t1),
+        await ledger_store.plan_prices(conn, base), await ledger_store.plan_prices(conn, target),
+        t_carried, hike_month.replace(day=1), hike_pct)
 
 
 @router.get("/ledger/not-returned")

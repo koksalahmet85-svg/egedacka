@@ -140,6 +140,7 @@ export interface SeasonComparison {
   price_changes: { group: string; month: string; base_price: number; target_price: number; change: number | null }[];
   season_plan_value: { base: SeasonPlanValue[]; target: SeasonPlanValue[] };
   plan_tiers: { base: PlanTierGroup[]; target: PlanTierGroup[] };
+  hike_scenario: { from: string | null; pct: number };
 }
 
 export interface PlanTierGroup {

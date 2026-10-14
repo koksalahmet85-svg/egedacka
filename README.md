@@ -116,11 +116,12 @@ Yetki: `ADMIN`, `MANAGER`, `COACH` (yalnız kendi takımları/seansları), `ACCO
 
 Sistem öncesi aylık Excel defterleri (`TEMMUZ 25`, `AĞUSTOS 26` … sayfaları) panelden **Sezon karşılaştırma → Defteri yükle** ile ya da `POST /api/v1/ledger/import` ile içe aktarılır.
 
-- **Sezon aralıkları** yönetici tarafından tanımlanır: `PUT /api/v1/seasons` (ör. `2025-2026: 2025-07-01 → 2026-07-31`, `2026-2027: 2026-08-01 → 2027-07-31`).
+- **Sezon aralıkları** yönetici tarafından tanımlanır: `PUT /api/v1/seasons` (ör. `2025-2026: 2025-08-01 → 2026-07-31`, `2026-2027: 2026-08-01 → 2027-07-31`).
 - **Serbest metin "DÖNEM"** sınıflandırılır: aylık, kısmi (yarım/eksik), çok aylık, sezonluk peşin, sezonluk taksit, tekstil, etkinlik (İstanbul, Yeşil Tribün), geçmiş borç, iptal.
 - **Veri kalitesi sessizce düzeltilmez**: hatalı tarih (`01.08.205`), metin tutar (`₺4.700,00`, `₺5,200.00`), TUTAR ≠ AİDAT+FORMA uyuşmazlığı vb. her düzeltme `GET /ledger/anomalies` listesine düşer. Tekstilsiz satırda iki tutar çelişirse **küçük olan** alınır (gelir şişmez).
 - **Yeniden yükleme güvenli**: dosyadaki sayfalar tamamen değiştirilir (defter canlı belge; satır kayması bozmaz).
-- **İki hesap modu**: `cash` (her ödeme defter sayfasının sezonuna) ve `economic` (önerilen: Temmuz'da alınan sezonluk peşin/taksit yeni sezona yazılır).
+- **Sezon = 12 ay (Ağustos–Temmuz)**. İki hesap modu: `cash` (her ödeme defter sayfasının sezonuna) ve `economic` (varsayılan: sezon öncesi ayda — Temmuz erken kayıt — alınan sezonluk plan yeni sezona yazılır; Temmuz'un aylık aidatı biten sezonda kalır).
+- **Zam senaryosu**: `GET /ledger/compare?hike_pct=0.2` gelecek aylara (varsayılan: sezonun Ocak ayından itibaren) zam uygular; peşin ↔ aylık kıyası ve başabaş zam buna göre hesaplanır. Defterde "BAŞARI"/"İNDİRİM"/"BURS" geçen satırlar indirimli sayılır ve fiyat hesaplarına girmez.
 - **Hizalanmış kıyas**: hedef sezonun kapsadığı aylar, son ayda aynı güne kadar, geçen yılın aynı penceresiyle kıyaslanır.
 - **Sezonluk peşin ↔ 12 ay aylık**: sezonluk plan 12 ay kapsar (sezon bitişinden geriye 12 ay). Peşin fiyatı, defterdeki fiili aylık fiyat merdiveniyle aynı 12 ayın toplamına kıyaslanır; gelmemiş aylar son fiyatla doldurulur ve "başabaş zam" (peşinin aylıkla eşitlenmesi için kalan aylarda gereken zam) raporlanır.
 - **Plan kademeleri** (`PUT /seasons/{ad}/plan-prices`, ör. erken kayıt 107.000 / standart 119.000, isteğe bağlı son tarih): peşin + taksit toplamı kademeye ±%1 yakın oyuncular eşlenir; taksiti süren ve kademe dışı fiyattan alınan planlar ayrı raporlanır, son tarihten sonra erken fiyat verilmesi işaretlenir.
