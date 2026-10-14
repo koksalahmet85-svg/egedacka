@@ -1,0 +1,1168 @@
+// =============================================================================
+// Ege Alfa Spor Kulübü — Kulüp Yönetim Sistemi
+// Tek doğruluk kaynağı (single source of truth). Migration'lar buradan üretilir.
+//
+// Bölümler:
+//   1. Kimlik & Yetki           (User, AuditLog, Consent)
+//   2. Tesis                    (Venue, Court)
+//   3. Koç & İK                 (Staff, Shift, TimeEntry, LeaveRequest, PayrollRun, Payslip)
+//   4. Takım & Antrenman        (Season, Team, TeamCoach, TeamMembership, RecurringSlot,
+//                                TrainingPlan, TrainingSession, SessionDrill, Attendance)
+//   5. Sporcu & Veli            (Athlete, Guardian, AthleteGuardian)
+//   6. Performans               (PhysicalTestType, PhysicalTestResult, Game, GameStat, MonthlyReport)
+//   7. Finans                   (FeePlan, Subscription, Charge, Payment, PaymentAllocation,
+//                                Invoice, Expense)
+//   8. CRM & Pazarlama          (AdCampaign, AdSpendDaily, Lead, LeadActivity, TrialBooking)
+//   9. Sistem                   (Notification, WebhookEvent)
+//
+// Para alanları her zaman Decimal(12,2). Float ASLA kullanılmaz.
+// Saha çakışma koruması (EXCLUDE constraint) Prisma tarafından ifade edilemediği için
+// migrations/0001_constraints/migration.sql içinde ham SQL ile eklenir.
+// =============================================================================
+
+generator client {
+  provider                    = "prisma-client-py"
+  interface                   = "asyncio"
+  recursive_type_depth        = 5
+  enable_experimental_decimal = true
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. KİMLİK & YETKİ
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN // kulüp yönetimi, her şeye erişim
+  MANAGER // sportif direktör
+  COACH
+  FINANCE
+  MARKETING
+  GUARDIAN // veli portalı
+  ATHLETE // sporcu portalı (13+ yaş)
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  phone        String?   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  staff         Staff?
+  athlete       Athlete?
+  guardian      Guardian?
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@index([role])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String?  @db.Uuid
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String // "charge.waive", "payment.create", "lead.stage" ...
+  entity    String
+  entityId  String
+  diff      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+enum ConsentType {
+  KVKK_PROCESSING // zorunlu açık rıza / aydınlatma
+  HEALTH_DATA // sağlık verisi: özel nitelikli kişisel veri (KVKK md.6)
+  PHOTO_VIDEO // sosyal medyada görsel kullanımı
+  MARKETING // ticari elektronik ileti (İYS)
+}
+
+// Reşit olmayan sporcular için rıza her zaman veli üzerinden alınır.
+model Consent {
+  id          String      @id @default(uuid()) @db.Uuid
+  guardianId  String      @db.Uuid
+  guardian    Guardian    @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  athleteId   String?     @db.Uuid
+  athlete     Athlete?    @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  type        ConsentType
+  granted     Boolean
+  textVersion String // onaylanan metnin versiyonu (ör. "kvkk-2026-01")
+  grantedAt   DateTime    @default(now())
+  revokedAt   DateTime?
+
+  @@index([guardianId, type])
+  @@index([athleteId, type])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. TESİS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CourtType {
+  INDOOR_HALL // kapalı salon
+  OUTDOOR_COURT // açık saha
+  GYM // kondisyon salonu
+  MEETING_ROOM // video analiz / toplantı
+}
+
+model Venue {
+  id       String  @id @default(uuid()) @db.Uuid
+  name     String  @unique
+  address  String?
+  isOwned  Boolean @default(false) // kira mı, mülk mü
+  isActive Boolean @default(true)
+  courts   Court[]
+}
+
+model Court {
+  id         String    @id @default(uuid()) @db.Uuid
+  venueId    String    @db.Uuid
+  venue      Venue     @relation(fields: [venueId], references: [id], onDelete: Restrict)
+  name       String
+  type       CourtType
+  capacity   Int       @default(20) // aynı anda en fazla sporcu
+  hourlyCost Decimal   @default(0) @db.Decimal(12, 2) // kiralık saatlik maliyet
+  isActive   Boolean   @default(true)
+
+  sessions       TrainingSession[]
+  recurringSlots RecurringSlot[]
+  shifts         Shift[]
+  expenses       Expense[]
+
+  @@unique([venueId, name])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. KOÇ & İK
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Department {
+  COACHING
+  ADMINISTRATION
+  MARKETING
+  FINANCE
+  OPERATIONS
+  HEALTH // fizyoterapist, sporcu sağlığı
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  FREELANCE
+}
+
+enum PayType {
+  MONTHLY // sabit maaş
+  HOURLY // puantaj saatine göre
+  PER_SESSION // antrenman başı ücret
+  MIXED // sabit + seans başı ek ücret
+}
+
+model Staff {
+  id                String         @id @default(uuid()) @db.Uuid
+  userId            String?        @unique @db.Uuid
+  user              User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstName         String
+  lastName          String
+  phone             String?
+  department        Department
+  title             String // "Baş Antrenör U14", "Muhasebe Uzmanı"
+  employmentType    EmploymentType
+  payType           PayType
+  baseSalary        Decimal        @default(0) @db.Decimal(12, 2) // brüt aylık
+  hourlyRate        Decimal?       @db.Decimal(12, 2)
+  sessionRate       Decimal?       @db.Decimal(12, 2)
+  ibanEncrypted     String? // uygulama katmanında şifrelenir
+  coachLicenseLevel String? // TBF antrenör kademesi (1-5)
+  licenseExpiresOn  DateTime?      @db.Date
+  hireDate          DateTime       @db.Date
+  terminationDate   DateTime?      @db.Date
+  isActive          Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  teamRoles        TeamCoach[]
+  headOfTeams      Team[]               @relation("HeadCoach")
+  ledSessions      TrainingSession[]    @relation("SessionCoach")
+  recurringSlots   RecurringSlot[]
+  createdPlans     TrainingPlan[]
+  shifts           Shift[]
+  timeEntries      TimeEntry[]          @relation("TimeEntryStaff")
+  approvedEntries  TimeEntry[]          @relation("TimeEntryApprover")
+  leaveRequests    LeaveRequest[]
+  payslips         Payslip[]
+  measuredTests    PhysicalTestResult[]
+  ownedLeads       Lead[]
+  leadActivities   LeadActivity[]
+  receivedPayments Payment[]
+  createdExpenses  Expense[]
+  publishedReports MonthlyReport[]
+
+  @@index([department, isActive])
+}
+
+enum ShiftType {
+  TRAINING
+  MATCH
+  ADMIN
+  EVENT // kamp, turnuva, seçme
+}
+
+enum ShiftStatus {
+  PLANNED
+  COMPLETED
+  CANCELLED
+}
+
+// Vardiya: planlanan çalışma bloğu. Antrenman dışı işler (idari, organizasyon) dahil.
+model Shift {
+  id       String      @id @default(uuid()) @db.Uuid
+  staffId  String      @db.Uuid
+  staff    Staff       @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  courtId  String?     @db.Uuid
+  court    Court?      @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  type     ShiftType
+  status   ShiftStatus @default(PLANNED)
+  startsAt DateTime
+  endsAt   DateTime
+  note     String?
+
+  timeEntries TimeEntry[]
+
+  @@index([staffId, startsAt])
+}
+
+enum TimeEntrySource {
+  MANUAL
+  QR_CHECKIN // salonda QR ile giriş/çıkış
+  SESSION_AUTO // tamamlanan antrenmandan otomatik
+}
+
+// Puantaj: gerçekleşen çalışma. Maaş hesabı yalnızca ONAYLI kayıtlardan yapılır.
+model TimeEntry {
+  id           String           @id @default(uuid()) @db.Uuid
+  staffId      String           @db.Uuid
+  staff        Staff            @relation("TimeEntryStaff", fields: [staffId], references: [id], onDelete: Cascade)
+  shiftId      String?          @db.Uuid
+  shift        Shift?           @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  sessionId    String?          @db.Uuid
+  session      TrainingSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  workDate     DateTime         @db.Date
+  clockIn      DateTime
+  clockOut     DateTime?
+  minutes      Int              @default(0)
+  source       TimeEntrySource  @default(MANUAL)
+  approvedById String?          @db.Uuid
+  approvedBy   Staff?           @relation("TimeEntryApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt   DateTime?
+
+  @@unique([staffId, sessionId]) // aynı seans iki kez puantaja yazılamaz
+  @@index([staffId, workDate])
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  UNPAID
+  EXCUSE
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model LeaveRequest {
+  id        String         @id @default(uuid()) @db.Uuid
+  staffId   String         @db.Uuid
+  staff     Staff          @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type      LeaveType
+  startDate DateTime       @db.Date
+  endDate   DateTime       @db.Date
+  status    ApprovalStatus @default(PENDING)
+  note      String?
+  createdAt DateTime       @default(now())
+
+  @@index([staffId, startDate])
+}
+
+enum PayrollStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
+
+model PayrollRun {
+  id         String        @id @default(uuid()) @db.Uuid
+  period     DateTime      @unique @db.Date // ayın ilk günü
+  status     PayrollStatus @default(DRAFT)
+  totalGross Decimal       @default(0) @db.Decimal(12, 2)
+  totalNet   Decimal       @default(0) @db.Decimal(12, 2)
+  approvedAt DateTime?
+  paidAt     DateTime?
+  createdAt  DateTime      @default(now())
+
+  payslips Payslip[]
+  expenses Expense[] // ödendiğinde SALARY gider kayıtları buraya bağlanır
+}
+
+model Payslip {
+  id             String     @id @default(uuid()) @db.Uuid
+  payrollRunId   String     @db.Uuid
+  payrollRun     PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  staffId        String     @db.Uuid
+  staff          Staff      @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  workedMinutes  Int        @default(0)
+  sessionCount   Int        @default(0)
+  baseAmount     Decimal    @db.Decimal(12, 2)
+  variableAmount Decimal    @default(0) @db.Decimal(12, 2) // saat / seans bazlı
+  bonus          Decimal    @default(0) @db.Decimal(12, 2)
+  deductions     Decimal    @default(0) @db.Decimal(12, 2)
+  gross          Decimal    @db.Decimal(12, 2)
+  net            Decimal    @db.Decimal(12, 2)
+  lines          Json? // kalem kalem döküm
+
+  @@unique([payrollRunId, staffId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. TAKIM & ANTRENMAN
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Season {
+  id       String   @id @default(uuid()) @db.Uuid
+  name     String   @unique // "2026-2027"
+  startsOn DateTime @db.Date
+  endsOn   DateTime @db.Date
+  isActive Boolean  @default(false)
+  teams    Team[]
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  MIXED
+}
+
+enum TeamLevel {
+  SCHOOL // basketbol okulu (temel eğitim)
+  DEVELOPMENT // altyapı gelişim
+  PERFORMANCE // lig takımı / elit
+}
+
+model Team {
+  id          String    @id @default(uuid()) @db.Uuid
+  seasonId    String    @db.Uuid
+  season      Season    @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  name        String // "U14 Erkek A"
+  ageGroup    String // "U8".."U18", "YETİŞKİN"
+  gender      Gender
+  level       TeamLevel
+  capacity    Int       @default(20)
+  headCoachId String?   @db.Uuid
+  headCoach   Staff?    @relation("HeadCoach", fields: [headCoachId], references: [id], onDelete: SetNull)
+  feePlanId   String?   @db.Uuid
+  feePlan     FeePlan?  @relation(fields: [feePlanId], references: [id], onDelete: SetNull)
+  isActive    Boolean   @default(true)
+
+  coaches        TeamCoach[]
+  memberships    TeamMembership[]
+  recurringSlots RecurringSlot[]
+  plans          TrainingPlan[]
+  sessions       TrainingSession[]
+  games          Game[]
+
+  @@unique([seasonId, name])
+}
+
+enum CoachRole {
+  HEAD
+  ASSISTANT
+  CONDITIONING
+  GOALKEEPER_SPECIFIC // branş genişlemesine hazır
+}
+
+model TeamCoach {
+  teamId  String    @db.Uuid
+  team    Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  staffId String    @db.Uuid
+  staff   Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  role    CoachRole
+
+  @@id([teamId, staffId])
+}
+
+// Tarihçeli üyelik: sporcu sezon içinde takım değiştirebilir, geçmiş korunur.
+model TeamMembership {
+  id        String    @id @default(uuid()) @db.Uuid
+  athleteId String    @db.Uuid
+  athlete   Athlete   @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  teamId    String    @db.Uuid
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  jerseyNo  Int?
+  joinedOn  DateTime  @db.Date
+  leftOn    DateTime? @db.Date
+
+  @@index([teamId, leftOn])
+  @@index([athleteId, leftOn])
+}
+
+// Haftalık şablon: "Her Salı 18:00-19:30, Salon A, Koç X". Plan üretiminin girdisi.
+model RecurringSlot {
+  id        String    @id @default(uuid()) @db.Uuid
+  teamId    String    @db.Uuid
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  courtId   String    @db.Uuid
+  court     Court     @relation(fields: [courtId], references: [id], onDelete: Restrict)
+  coachId   String    @db.Uuid
+  coach     Staff     @relation(fields: [coachId], references: [id], onDelete: Restrict)
+  weekday   Int // 0=Pazartesi .. 6=Pazar (ISO-1)
+  startTime String // "18:00" (Europe/Istanbul yerel saat)
+  endTime   String // "19:30"
+  validFrom DateTime  @db.Date
+  validTo   DateTime? @db.Date
+
+  @@index([teamId, weekday])
+}
+
+enum PlanStatus {
+  DRAFT
+  PUBLISHED // yayınlanınca veli/sporcu portalında görünür
+}
+
+// Haftalık dinamik program: şablondan üretilir, koç seans bazında düzenler.
+model TrainingPlan {
+  id          String     @id @default(uuid()) @db.Uuid
+  teamId      String     @db.Uuid
+  team        Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  weekStart   DateTime   @db.Date // haftanın pazartesisi
+  status      PlanStatus @default(DRAFT)
+  theme       String? // haftanın teması: "Pick&Roll savunması"
+  notes       String?
+  createdById String?    @db.Uuid
+  createdBy   Staff?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  publishedAt DateTime?
+
+  sessions TrainingSession[]
+
+  @@unique([teamId, weekStart])
+}
+
+enum SessionType {
+  TECHNICAL
+  TACTICAL
+  CONDITIONING
+  MATCH
+  RECOVERY
+  TRIAL // deneme antrenmanı (lead'ler katılır)
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model TrainingSession {
+  id         String        @id @default(uuid()) @db.Uuid
+  teamId     String        @db.Uuid
+  team       Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  planId     String?       @db.Uuid
+  plan       TrainingPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  courtId    String        @db.Uuid
+  court      Court         @relation(fields: [courtId], references: [id], onDelete: Restrict)
+  coachId    String        @db.Uuid
+  coach      Staff         @relation("SessionCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  type       SessionType   @default(TECHNICAL)
+  status     SessionStatus @default(SCHEDULED)
+  startsAt   DateTime
+  endsAt     DateTime
+  focus      String?
+  plannedRpe Int? // planlanan yoğunluk (CR-10)
+  trialSeats Int           @default(0) // deneme antrenmanına açık kontenjan
+
+  drills      SessionDrill[]
+  attendance  Attendance[]
+  trials      TrialBooking[]
+  timeEntries TimeEntry[]
+  testResults PhysicalTestResult[]
+
+  @@index([courtId, startsAt])
+  @@index([teamId, startsAt])
+  @@index([coachId, startsAt])
+  @@index([status, startsAt])
+}
+
+model SessionDrill {
+  id          String          @id @default(uuid()) @db.Uuid
+  sessionId   String          @db.Uuid
+  session     TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  order       Int
+  name        String
+  durationMin Int
+  intensity   Int? // 1-10
+  videoUrl    String?
+
+  @@unique([sessionId, order])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  EXCUSED
+  INJURED
+}
+
+// sRPE (Foster ve ark., 2001): yük = RPE (CR-10) × süre (dk).
+model Attendance {
+  sessionId String           @db.Uuid
+  session   TrainingSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  athleteId String           @db.Uuid
+  athlete   Athlete          @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  status    AttendanceStatus
+  minutes   Int? // katıldığı süre; null = seans süresi
+  rpe       Int? // seans sonu 0-10 algılanan zorluk (30 dk sonra sorulmalı)
+  note      String?
+  markedAt  DateTime         @default(now())
+
+  @@id([sessionId, athleteId])
+  @@index([athleteId, status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. SPORCU & VELİ
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AthleteStatus {
+  TRIAL // deneme sürecinde
+  ACTIVE
+  PAUSED // dondurma (sakatlık, sınav dönemi)
+  LEFT
+}
+
+model Athlete {
+  id                    String        @id @default(uuid()) @db.Uuid
+  userId                String?       @unique @db.Uuid
+  user                  User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstName             String
+  lastName              String
+  birthDate             DateTime      @db.Date
+  gender                Gender
+  nationalIdEncrypted   String? // TCKN: uygulama katmanında AES-GCM ile şifrelenir
+  licenseNo             String?       @unique // TBF lisans no
+  position              String? // PG, SG, SF, PF, C
+  dominantHand          String?
+  status                AthleteStatus @default(ACTIVE)
+  joinedOn              DateTime      @db.Date
+  leftOn                DateTime?     @db.Date
+  leaveReason           String? // churn analizi için
+  medicalClearanceUntil DateTime?     @db.Date // sağlık raporu bitişi
+  photoUrl              String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  guardians     AthleteGuardian[]
+  memberships   TeamMembership[]
+  attendance    Attendance[]
+  testResults   PhysicalTestResult[]
+  gameStats     GameStat[]
+  reports       MonthlyReport[]
+  subscriptions Subscription[]
+  charges       Charge[]
+  consents      Consent[]
+  sourceLead    Lead?                @relation("LeadConversion")
+  referredLeads Lead[]               @relation("Referral")
+
+  @@index([status])
+  @@index([lastName, firstName])
+}
+
+model Guardian {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String?  @unique @db.Uuid
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstName        String
+  lastName         String
+  phone            String // E.164: +905xxxxxxxxx
+  email            String?
+  taxIdEncrypted   String? // e-Arşiv fatura için TCKN/VKN
+  billingAddress   String?
+  preferredChannel String   @default("WHATSAPP") // WHATSAPP | SMS | EMAIL
+  createdAt        DateTime @default(now())
+
+  athletes AthleteGuardian[]
+  charges  Charge[]
+  payments Payment[]
+  invoices Invoice[]
+  consents Consent[]
+
+  @@index([phone])
+}
+
+model AthleteGuardian {
+  athleteId        String   @db.Uuid
+  athlete          Athlete  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  guardianId       String   @db.Uuid
+  guardian         Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  relation         String // ANNE, BABA, VASİ
+  isBillingContact Boolean  @default(false) // aidat bu kişiye kesilir
+
+  @@id([athleteId, guardianId])
+  @@index([guardianId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. PERFORMANS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TestCategory {
+  ANTHROPOMETRIC // boy, kilo, oturma boyu, kanat açıklığı
+  POWER // CMJ, durarak uzun atlama
+  SPEED // 5m/10m/20m sprint
+  AGILITY // lane agility, T-test
+  ENDURANCE // Yo-Yo IR1
+  FLEXIBILITY
+  SKILL // serbest atış %, dribbling parkuru
+}
+
+model PhysicalTestType {
+  id             String       @id @default(uuid()) @db.Uuid
+  code           String       @unique // "CMJ", "SPRINT_20M", "YOYO_IR1", "HEIGHT", "SITTING_HEIGHT"
+  name           String
+  category       TestCategory
+  unit           String // "cm", "s", "m", "kg", "%"
+  higherIsBetter Boolean
+  // Test-retest tipik hatası (TE). SWC'yi anlamlı değişimden ayırmak için kullanılır.
+  typicalError   Decimal?     @db.Decimal(10, 3)
+
+  results PhysicalTestResult[]
+}
+
+model PhysicalTestResult {
+  id           String           @id @default(uuid()) @db.Uuid
+  athleteId    String           @db.Uuid
+  athlete      Athlete          @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  testTypeId   String           @db.Uuid
+  testType     PhysicalTestType @relation(fields: [testTypeId], references: [id], onDelete: Restrict)
+  sessionId    String?          @db.Uuid
+  session      TrainingSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  value        Decimal          @db.Decimal(10, 3)
+  attempt      Int              @default(1)
+  measuredAt   DateTime
+  measuredById String?          @db.Uuid
+  measuredBy   Staff?           @relation(fields: [measuredById], references: [id], onDelete: SetNull)
+  notes        String?
+
+  @@index([athleteId, testTypeId, measuredAt])
+}
+
+model Game {
+  id          String   @id @default(uuid()) @db.Uuid
+  teamId      String   @db.Uuid
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  opponent    String
+  competition String? // "İzmir U14 Ligi"
+  playedAt    DateTime
+  isHome      Boolean
+  teamScore   Int?
+  oppScore    Int?
+
+  stats GameStat[]
+
+  @@index([teamId, playedAt])
+}
+
+// Box score. Ribaund = oreb + dreb (ayrı tutulur; ofansif ribaund ayrı bir beceri).
+model GameStat {
+  gameId     String  @db.Uuid
+  game       Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  athleteId  String  @db.Uuid
+  athlete    Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  seconds    Int     @default(0)
+  points     Int     @default(0)
+  fgm2       Int     @default(0)
+  fga2       Int     @default(0)
+  fgm3       Int     @default(0)
+  fga3       Int     @default(0)
+  ftm        Int     @default(0)
+  fta        Int     @default(0)
+  oreb       Int     @default(0)
+  dreb       Int     @default(0)
+  ast        Int     @default(0)
+  stl        Int     @default(0)
+  blk        Int     @default(0)
+  tov        Int     @default(0)
+  pf         Int     @default(0)
+  foulsDrawn Int     @default(0) // PIR için
+  blkAgainst Int     @default(0) // PIR için
+  plusMinus  Int?
+
+  @@id([gameId, athleteId])
+  @@index([athleteId])
+}
+
+// Aylık rapor: ay sonunda job ile hesaplanır (snapshot), koç yorum ekleyip yayınlar.
+// Snapshot tutulur ki geçmiş raporlar sonradan düzeltilen verilerle sessizce değişmesin.
+model MonthlyReport {
+  id               String    @id @default(uuid()) @db.Uuid
+  athleteId        String    @db.Uuid
+  athlete          Athlete   @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  period           DateTime  @db.Date // ayın ilk günü
+  sessionsTotal    Int
+  sessionsAttended Int
+  attendanceRate   Decimal   @db.Decimal(5, 2)
+  totalLoadAu      Int       @default(0) // sRPE toplamı (AU)
+  gamesPlayed      Int       @default(0)
+  avgPoints        Decimal?  @db.Decimal(6, 2)
+  avgRebounds      Decimal?  @db.Decimal(6, 2)
+  avgAssists       Decimal?  @db.Decimal(6, 2)
+  avgPir           Decimal?  @db.Decimal(6, 2)
+  metrics          Json // test bazlı: {code: {value, delta, swc, meaningful}}
+  coachComment     String?
+  publishedAt      DateTime?
+  publishedById    String?   @db.Uuid
+  publishedBy      Staff?    @relation(fields: [publishedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+
+  @@unique([athleteId, period])
+  @@index([period, publishedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. FİNANS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model FeePlan {
+  id            String  @id @default(uuid()) @db.Uuid
+  name          String  @unique // "Okul 2x/hafta", "Performans 4x/hafta"
+  monthlyAmount Decimal @db.Decimal(12, 2) // KDV dahil liste fiyatı
+  vatRate       Decimal @default(0) @db.Decimal(5, 2) // dernek: 0, şirket: 20
+  dueDay        Int     @default(5) // ayın kaçında vadesi dolar
+  isActive      Boolean @default(true)
+
+  teams         Team[]
+  subscriptions Subscription[]
+}
+
+enum DiscountReason {
+  NONE
+  SIBLING // kardeş indirimi
+  SCHOLARSHIP // burs / yetenek
+  STAFF_CHILD
+  ANNUAL_PREPAY
+  CAMPAIGN
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+// Aidat aboneliği: aylık tahakkuklar buradan üretilir.
+model Subscription {
+  id             String             @id @default(uuid()) @db.Uuid
+  athleteId      String             @db.Uuid
+  athlete        Athlete            @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  feePlanId      String             @db.Uuid
+  feePlan        FeePlan            @relation(fields: [feePlanId], references: [id], onDelete: Restrict)
+  discountPct    Decimal            @default(0) @db.Decimal(5, 2)
+  discountReason DiscountReason     @default(NONE)
+  startsOn       DateTime           @db.Date
+  endsOn         DateTime?          @db.Date
+  status         SubscriptionStatus @default(ACTIVE)
+  autoPayToken   String? // iyzico kayıtlı kart token'ı (kart verisi ASLA tutulmaz)
+
+  charges Charge[]
+
+  @@index([status])
+  @@index([athleteId])
+}
+
+enum ChargeType {
+  MONTHLY_DUES
+  REGISTRATION
+  CAMP
+  EQUIPMENT
+  TOURNAMENT
+  OTHER
+}
+
+enum ChargeStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  WAIVED
+  CANCELLED
+}
+
+// Tahakkuk (borç kalemi). Ödeme ile N:M ilişkili (PaymentAllocation).
+model Charge {
+  id             String        @id @default(uuid()) @db.Uuid
+  athleteId      String        @db.Uuid
+  athlete        Athlete       @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  guardianId     String        @db.Uuid // borçlu (fatura muhatabı)
+  guardian       Guardian      @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  subscriptionId String?       @db.Uuid
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  type           ChargeType
+  period         DateTime?     @db.Date // aidatlar için ayın ilk günü
+  description    String
+  grossAmount    Decimal       @db.Decimal(12, 2)
+  discountAmount Decimal       @default(0) @db.Decimal(12, 2)
+  netAmount      Decimal       @db.Decimal(12, 2)
+  paidAmount     Decimal       @default(0) @db.Decimal(12, 2)
+  dueDate        DateTime      @db.Date
+  status         ChargeStatus  @default(PENDING)
+  reminderLevel  Int           @default(0) // 0: yok, 1: D+3, 2: D+10, 3: D+20 (yönetici)
+  createdAt      DateTime      @default(now())
+
+  allocations PaymentAllocation[]
+
+  // Aylık üretim idempotent: aynı abonelik + ay için ikinci tahakkuk oluşamaz.
+  @@unique([subscriptionId, period])
+  @@index([status, dueDate])
+  @@index([guardianId, status])
+  @@index([athleteId, period])
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  POS
+  ONLINE_CARD // iyzico
+  AUTO_CHARGE // kayıtlı karttan otomatik çekim
+}
+
+enum PaymentStatus {
+  COMPLETED
+  REFUNDED
+  FAILED
+}
+
+model Payment {
+  id            String        @id @default(uuid()) @db.Uuid
+  guardianId    String        @db.Uuid
+  guardian      Guardian      @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  amount        Decimal       @db.Decimal(12, 2)
+  method        PaymentMethod
+  status        PaymentStatus @default(COMPLETED)
+  paidAt        DateTime      @default(now())
+  reference     String? // dekont no
+  providerTxnId String?       @unique // iyzico paymentId → çift kayıt koruması
+  receivedById  String?       @db.Uuid
+  receivedBy    Staff?        @relation(fields: [receivedById], references: [id], onDelete: SetNull)
+  note          String?
+
+  allocations PaymentAllocation[]
+  invoice     Invoice?
+
+  @@index([paidAt, status])
+  @@index([guardianId, paidAt])
+}
+
+model PaymentAllocation {
+  paymentId String  @db.Uuid
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  chargeId  String  @db.Uuid
+  charge    Charge  @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+  amount    Decimal @db.Decimal(12, 2)
+
+  @@id([paymentId, chargeId])
+  @@index([chargeId])
+}
+
+enum InvoiceKind {
+  E_ARSIV // nihai tüketiciye e-Arşiv fatura
+  E_FATURA // e-Fatura mükellefi (kurumsal sponsor vb.)
+  RECEIPT // dernek alındı belgesi / tahsilat makbuzu
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  SENT
+  CANCELLED
+  FAILED
+}
+
+model Invoice {
+  id          String        @id @default(uuid()) @db.Uuid
+  number      String        @unique // "EAS2026000000123"
+  kind        InvoiceKind
+  status      InvoiceStatus @default(DRAFT)
+  guardianId  String        @db.Uuid
+  guardian    Guardian      @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  paymentId   String?       @unique @db.Uuid
+  payment     Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  issuedAt    DateTime?
+  subtotal    Decimal       @db.Decimal(12, 2)
+  vatRate     Decimal       @db.Decimal(5, 2)
+  vatAmount   Decimal       @db.Decimal(12, 2)
+  total       Decimal       @db.Decimal(12, 2)
+  provider    String? // "parasut", "mock"
+  providerRef String? // entegratör belge id
+  ettn        String?       @unique // GİB evrensel tekil numara
+  pdfUrl      String?
+  error       String?
+  attempts    Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  @@index([status])
+  @@index([guardianId, issuedAt])
+}
+
+enum ExpenseCategory {
+  SALARY
+  RENT // salon kirası
+  EQUIPMENT
+  TRANSPORT
+  MARKETING // reklam dışı pazarlama (baskı, etkinlik). Reklam harcaması AdSpendDaily'de tutulur.
+  UTILITIES
+  TOURNAMENT // lig/turnuva katılım, hakem
+  LICENSE // federasyon lisans/vize
+  TAX
+  OTHER
+}
+
+model Expense {
+  id           String          @id @default(uuid()) @db.Uuid
+  category     ExpenseCategory
+  amount       Decimal         @db.Decimal(12, 2) // KDV dahil
+  vatAmount    Decimal         @default(0) @db.Decimal(12, 2)
+  incurredOn   DateTime        @db.Date
+  vendor       String?
+  description  String?
+  courtId      String?         @db.Uuid
+  court        Court?          @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  campaignId   String?         @db.Uuid
+  campaign     AdCampaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  payrollRunId String?         @db.Uuid
+  payrollRun   PayrollRun?     @relation(fields: [payrollRunId], references: [id], onDelete: SetNull)
+  documentUrl  String?
+  createdById  String?         @db.Uuid
+  createdBy    Staff?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+
+  @@index([incurredOn, category])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. CRM & PAZARLAMA
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AdPlatform {
+  META // Facebook + Instagram Ads
+  GOOGLE
+  TIKTOK
+  ORGANIC_SOCIAL
+  OTHER
+}
+
+model AdCampaign {
+  id         String     @id @default(uuid()) @db.Uuid
+  platform   AdPlatform
+  externalId String // platformdaki kampanya id
+  name       String
+  objective  String? // LEAD_GENERATION, TRAFFIC ...
+  isActive   Boolean    @default(true)
+  startsOn   DateTime?  @db.Date
+  endsOn     DateTime?  @db.Date
+
+  spend    AdSpendDaily[]
+  leads    Lead[]
+  expenses Expense[]
+
+  @@unique([platform, externalId])
+}
+
+// Günlük harcama: Meta Marketing API / Google Ads API'den gece senkronlanır.
+model AdSpendDaily {
+  campaignId    String     @db.Uuid
+  campaign      AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  date          DateTime   @db.Date
+  spend         Decimal    @db.Decimal(12, 2)
+  impressions   Int        @default(0)
+  clicks        Int        @default(0)
+  platformLeads Int        @default(0) // platformun raporladığı (CRM ile kıyas için)
+
+  @@id([campaignId, date])
+  @@index([date])
+}
+
+enum LeadSource {
+  META_LEAD_AD
+  GOOGLE_LEAD_FORM
+  WEBSITE
+  INSTAGRAM_DM
+  WHATSAPP
+  REFERRAL // mevcut veli/sporcu tavsiyesi
+  WALK_IN
+  SCHOOL_EVENT // okul tanıtım etkinliği
+  OTHER
+}
+
+// Huni sırası önemlidir: aşamalar ileri doğru ilerler, LOST her aşamadan düşebilir.
+enum LeadStage {
+  NEW
+  CONTACTED
+  TRIAL_SCHEDULED
+  TRIAL_ATTENDED
+  WON // kayıt + ilk ödeme
+  LOST
+}
+
+model Lead {
+  id                  String      @id @default(uuid()) @db.Uuid
+  parentName          String
+  phone               String // normalize edilmiş E.164
+  email               String?
+  childName           String?
+  childBirthYear      Int?
+  source              LeadSource
+  campaignId          String?     @db.Uuid
+  campaign            AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  utmSource           String?
+  utmMedium           String?
+  utmCampaign         String?
+  utmContent          String?
+  externalLeadId      String?     @unique // Meta leadgen_id → webhook idempotency
+  stage               LeadStage   @default(NEW)
+  lostReason          String? // "fiyat", "mesafe", "saat uymuyor"
+  ownerId             String?     @db.Uuid
+  owner               Staff?      @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  referredByAthleteId String?     @db.Uuid
+  referredByAthlete   Athlete?    @relation("Referral", fields: [referredByAthleteId], references: [id], onDelete: SetNull)
+  convertedAthleteId  String?     @unique @db.Uuid
+  convertedAthlete    Athlete?    @relation("LeadConversion", fields: [convertedAthleteId], references: [id], onDelete: SetNull)
+  marketingConsent    Boolean     @default(false)
+  // Huni kilometre taşları: ilk ulaşıldığında bir kez yazılır, LOST olsa bile korunur.
+  firstContactAt      DateTime? // speed-to-lead ölçümü
+  trialScheduledAt    DateTime?
+  trialAttendedAt     DateTime?
+  wonAt               DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  activities LeadActivity[]
+  trials     TrialBooking[]
+
+  @@index([stage, createdAt])
+  @@index([campaignId, createdAt])
+  @@index([source, createdAt])
+  @@index([phone])
+}
+
+enum LeadActivityType {
+  CALL
+  WHATSAPP
+  EMAIL
+  NOTE
+  STAGE_CHANGE
+}
+
+model LeadActivity {
+  id        String           @id @default(uuid()) @db.Uuid
+  leadId    String           @db.Uuid
+  lead      Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type      LeadActivityType
+  fromStage LeadStage?
+  toStage   LeadStage?
+  note      String?
+  actorId   String?          @db.Uuid
+  actor     Staff?           @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt DateTime         @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([toStage, createdAt])
+}
+
+enum TrialStatus {
+  BOOKED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+}
+
+// Deneme antrenmanı rezervasyonu. Cal.com webhook'u ile otomatik oluşur.
+model TrialBooking {
+  id            String          @id @default(uuid()) @db.Uuid
+  leadId        String          @db.Uuid
+  lead          Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sessionId     String          @db.Uuid
+  session       TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  status        TrialStatus     @default(BOOKED)
+  calBookingUid String?         @unique
+  coachRating   Int? // 1-5 koç değerlendirmesi
+  coachFeedback String?
+  createdAt     DateTime        @default(now())
+
+  @@unique([leadId, sessionId])
+  @@index([sessionId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. SİSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum NotificationChannel {
+  WHATSAPP
+  SMS
+  EMAIL
+  PUSH
+  IN_APP
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+}
+
+// Outbox deseni: iş mantığı bildirimi DB'ye yazar, worker gönderir.
+// dedupeKey: "overdue:{chargeId}:L2" → aynı alarm iki kez gönderilmez.
+model Notification {
+  id              String              @id @default(uuid()) @db.Uuid
+  channel         NotificationChannel
+  recipientUserId String?             @db.Uuid
+  recipient       User?               @relation(fields: [recipientUserId], references: [id], onDelete: SetNull)
+  toAddress       String
+  template        String
+  payload         Json
+  dedupeKey       String              @unique
+  status          NotificationStatus  @default(QUEUED)
+  scheduledFor    DateTime            @default(now())
+  sentAt          DateTime?
+  attempts        Int                 @default(0)
+  error           String?
+
+  @@index([status, scheduledFor])
+}
+
+// Gelen webhook'ların ham kaydı + idempotency.
+model WebhookEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  provider    String // "meta", "calcom", "iyzico"
+  externalId  String
+  payload     Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  error       String?
+
+  @@unique([provider, externalId])
+}

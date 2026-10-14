@@ -1,0 +1,91 @@
+# Ege Alfa Kulüp Yönetim Sistemi
+#   cp .env.example .env  (değerleri doldurun)
+#   docker compose up -d --build                                    → db + migrate + api + worker + web + backup
+#   docker compose run --rm api python -m app.seed --athletes 750   → demo verisi
+#   docker compose --profile calcom up -d                           → Cal.com (deneme rezervasyonu, opsiyonel)
+
+x-backend: &backend
+  build: ./backend
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql://egealfa:${POSTGRES_PASSWORD}@db:5432/egealfa
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_DB: egealfa
+      POSTGRES_USER: egealfa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env içinde tanımlanmalı}
+      TZ: UTC
+    command: >
+      postgres -c shared_buffers=256MB -c effective_cache_size=768MB
+               -c work_mem=8MB -c max_connections=60 -c log_min_duration_statement=500
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U egealfa -d egealfa"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ["prisma", "migrate", "deploy"]
+    restart: "no"
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    <<: *backend
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 15s
+      retries: 5
+
+  # Zamanlanmış işler TEK süreçte: aidat tahakkuku, gecikme alarmı, rapor, reklam senkronu, bildirim.
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.jobs.scheduler"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  web:
+    build: ./frontend
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    ports: ["3000:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
+  # Günlük yedek (pg_dump, 14 gün saklama). Kopyasını mutlaka tesis dışına alın.
+  backup:
+    image: postgres:16.6-alpine
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint: >
+      sh -c 'while true; do
+        pg_dump -h db -U egealfa -Fc egealfa > /backups/egealfa-$$(date +%F).dump &&
+        find /backups -name "*.dump" -mtime +14 -delete;
+        sleep 86400; done'
+    depends_on:
+      db: { condition: service_healthy }
+    restart: unless-stopped
+
+  calcom:
+    profiles: ["calcom"]
+    image: calcom/cal.com:v5.5.0
+    env_file: .env.calcom
+    ports: ["3001:3000"]
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:

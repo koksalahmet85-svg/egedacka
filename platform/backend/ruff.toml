@@ -1,0 +1,7 @@
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "W", "B", "I", "UP"]
+# B008: FastAPI Depends/Query varsayılanları; B904: HTTPException dönüşümü bilinçli.
+ignore = ["E501", "B008", "B904"]
