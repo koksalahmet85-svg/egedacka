@@ -3,7 +3,7 @@ from datetime import date
 
 import asyncpg
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..core.db import get_conn, rows
 from ..core.security import FINANCE_ROLES, CurrentUser, Role, require
@@ -13,6 +13,14 @@ from ..services.ledger_import import parse_workbook
 router = APIRouter(tags=["ledger"])
 MAX_UPLOAD = 15 * 1024 * 1024
 ANALYSIS_ROLES = (*FINANCE_ROLES, Role.MANAGER)
+
+
+class PlanPriceIn(BaseModel):
+    group: str = Field(pattern="^(ALTYAPI|SPOR_OKULU|KIZ_TAKIMI|MASA_TENISI|KARMA)$")
+    tier: str = Field(pattern="^(EARLY|STANDARD|LATE)$")
+    label: str | None = None
+    price: float = Field(gt=0)
+    valid_until: date | None = None
 
 
 class SeasonIn(BaseModel):
@@ -41,6 +49,28 @@ async def upsert_season(data: SeasonIn, _: CurrentUser = Depends(require(Role.AD
                  is_active=EXCLUDED.is_active RETURNING id""",
             data.name, data.start_date, data.end_date, data.is_active)
     return {"id": sid}
+
+
+@router.get("/seasons/{name}/plan-prices")
+async def get_plan_prices(name: str, _: CurrentUser = Depends(require(*ANALYSIS_ROLES)),
+                          conn: asyncpg.Connection = Depends(get_conn)):
+    return await ledger_store.plan_prices(conn, name)
+
+
+@router.put("/seasons/{name}/plan-prices")
+async def put_plan_prices(name: str, items: list[PlanPriceIn], _: CurrentUser = Depends(require(Role.ADMIN)),
+                          conn: asyncpg.Connection = Depends(get_conn)):
+    """Sezonluk plan kademelerini tamamen değiştirir (ör. erken kayıt 107.000, standart 119.000)."""
+    async with conn.transaction():
+        sid = await conn.fetchval("SELECT id FROM seasons WHERE name=$1", name)
+        if sid is None:
+            raise HTTPException(404, f"Sezon tanımlı değil: {name}")
+        await conn.execute("DELETE FROM season_plan_prices WHERE season_id=$1", sid)
+        await conn.executemany(
+            """INSERT INTO season_plan_prices (season_id, "group", tier, label, price, valid_until)
+               VALUES ($1,$2,$3,$4,$5,$6)""",
+            [(sid, i.group, i.tier, i.label, i.price, i.valid_until) for i in items])
+    return {"season": name, "tiers": len(items)}
 
 
 @router.post("/ledger/import", status_code=201)
@@ -91,7 +121,9 @@ async def compare(base: str, target: str, mode: str = Query("economic", pattern=
         raise HTTPException(404, "Seçilen sezonlarda defter kaydı yok")
     # Sezonluk plan 12 ay kapsar: sezon bitişinden geriye 12 ay.
     return season_analysis.compare(base, b_rows, target, t_rows, mode,
-                                   season_analysis.coverage_months(b1), season_analysis.coverage_months(t1))
+                                   season_analysis.coverage_months(b1), season_analysis.coverage_months(t1),
+                                   await ledger_store.plan_prices(conn, base),
+                                   await ledger_store.plan_prices(conn, target))
 
 
 @router.get("/ledger/not-returned")

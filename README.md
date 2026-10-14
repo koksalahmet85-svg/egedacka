@@ -28,7 +28,7 @@ Docker olmadan geliştirme:
 ```bash
 npm install && DATABASE_URL=postgresql://... npx prisma migrate deploy
 cd backend && pip install -r requirements-dev.txt && uvicorn app.main:app --reload
-python -m pytest            # 33 test; yerel PostgreSQL'de geçici "egealfa_test" DB açar
+python -m pytest            # 35 test; yerel PostgreSQL'de geçici "egealfa_test" DB açar
 cd ../frontend && npm install && npm run dev
 ```
 
@@ -94,7 +94,7 @@ Tarayıcı ──(ilk yük)──> Next.js sunucu bileşeni ──(iç ağ, Bear
 **Bilinçli olarak kullanılmayan:** ACWR (akut:kronik yük oranı) — sakatlık tahmin aracı olarak metodolojik açıdan çürütüldü (Impellizzeri et al. 2020, *IJSPP* 15(6)).
 **Uyarı:** `metric_definitions.typical_error` değerleri literatür yaklaşığıdır; kulübün kendi test-tekrar test ölçümüyle güncellenmelidir.
 
-## Modül → endpoint haritası (79 uç)
+## Modül → endpoint haritası (81 uç)
 | Modül | Önek | Öne çıkanlar |
 |---|---|---|
 | Kimlik | `/auth` | login (OAuth2 form), me |
@@ -123,6 +123,7 @@ Sistem öncesi aylık Excel defterleri (`TEMMUZ 25`, `AĞUSTOS 26` … sayfalar�
 - **İki hesap modu**: `cash` (her ödeme defter sayfasının sezonuna) ve `economic` (önerilen: Temmuz'da alınan sezonluk peşin/taksit yeni sezona yazılır).
 - **Hizalanmış kıyas**: hedef sezonun kapsadığı aylar, son ayda aynı güne kadar, geçen yılın aynı penceresiyle kıyaslanır.
 - **Sezonluk peşin ↔ 12 ay aylık**: sezonluk plan 12 ay kapsar (sezon bitişinden geriye 12 ay). Peşin fiyatı, defterdeki fiili aylık fiyat merdiveniyle aynı 12 ayın toplamına kıyaslanır; gelmemiş aylar son fiyatla doldurulur ve "başabaş zam" (peşinin aylıkla eşitlenmesi için kalan aylarda gereken zam) raporlanır.
+- **Plan kademeleri** (`PUT /seasons/{ad}/plan-prices`, ör. erken kayıt 107.000 / standart 119.000, isteğe bağlı son tarih): peşin + taksit toplamı kademeye ±%1 yakın oyuncular eşlenir; taksiti süren ve kademe dışı fiyattan alınan planlar ayrı raporlanır, son tarihten sonra erken fiyat verilmesi işaretlenir.
 - `GET /ledger/not-returned`: geçen sezonun son 3 ayında ödeyip bu sezon henüz ödemeyenler (geri kazanım arama listesi).
 - Defter tahsilatları `v_cash_movements` görünümüne `LEDGER_*` kategorileriyle girer. **Canlı tahsilata geçilen aydan sonra defter yüklenmemelidir** (çift sayım).
 - Gerçek defter dosyaları `.gitignore` ile repodan dışlanmıştır; testler sentetik çalışma kitabı üretir.

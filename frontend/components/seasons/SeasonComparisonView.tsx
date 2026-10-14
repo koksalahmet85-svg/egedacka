@@ -147,6 +147,7 @@ function Body({ d, mode, setMode, notReturned }: {
       </div>
 
       <PlanValue d={d} />
+      {d.plan_tiers.target.length > 0 && <PlanTiers name={d.target.name} groups={d.plan_tiers.target} />}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <section className="min-w-0 overflow-x-auto rounded-xl border border-line bg-surface p-4">
@@ -258,6 +259,61 @@ function PlanValue({ d }: { d: SeasonComparison }) {
               ))))}
         </tbody>
       </table>
+    </section>
+  );
+}
+
+function PlanTiers({ name, groups }: { name: string; groups: SeasonComparison["plan_tiers"]["target"] }) {
+  return (
+    <section className="overflow-x-auto rounded-xl border border-line bg-surface p-4">
+      <h2 className="font-semibold">Sezonluk plan kademeleri · {name}</h2>
+      <p className="mb-3 text-xs text-muted">
+        Oyuncunun sezonluk toplamı (peşin + taksitler) kademe fiyatına ±%1 yakınsa o kademeden sayılır.
+      </p>
+      {groups.map((g) => {
+        const total = g.tiers.reduce((a, t) => a + t.players, 0) + g.in_progress_players + g.other_price_players;
+        return (
+          <div key={g.group} className="mb-4 last:mb-0">
+            <table className="tabular w-full min-w-[720px] text-sm">
+              <thead className="text-left text-ink-2">
+                <tr>
+                  <th>{GROUP_TR[g.group] ?? g.group} · {fmt.n(total)} plan</th><th className="text-right">Fiyat</th>
+                  <th className="text-right">Oyuncu</th><th className="text-right">Peşin / taksit</th>
+                  <th className="text-right">Ödeme aralığı</th><th className="text-right">Son tarih sonrası</th>
+                  <th className="text-right">12 ay aylığa göre</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.tiers.map((t) => (
+                  <tr key={t.tier} className="border-t border-line">
+                    <td className="py-1">{t.label}</td>
+                    <td className="text-right">{fmt.tl(t.price)}</td>
+                    <td className="text-right">{fmt.n(t.players)} · {fmt.pct(total ? t.players / total : null)}</td>
+                    <td className="text-right">{t.upfront} / {t.installment}</td>
+                    <td className="text-right">{t.first_paid && t.last_paid ? `${t.first_paid.slice(5)} → ${t.last_paid.slice(5)}` : "—"}</td>
+                    <td className={`text-right ${(t.after_deadline ?? 0) > 0 ? "text-critical" : ""}`}>
+                      {t.valid_until == null ? <span className="text-muted">son tarih tanımsız</span> : fmt.n(t.after_deadline)}
+                    </td>
+                    <td className={`text-right font-medium ${(t.discount_vs_monthly ?? 0) < 0.05 ? "text-critical" : "text-good"}`}>
+                      {t.discount_vs_monthly == null ? "—" : `${t.discount_vs_monthly >= 0 ? "%" + (t.discount_vs_monthly * 100).toLocaleString("tr-TR", { maximumFractionDigits: 1 }) + " ucuz" : "%" + (-t.discount_vs_monthly * 100).toLocaleString("tr-TR", { maximumFractionDigits: 1 }) + " pahalı"}`}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="border-t border-line text-ink-2">
+                  <td className="py-1">Taksiti sürüyor</td><td /><td className="text-right">{fmt.n(g.in_progress_players)}</td>
+                  <td colSpan={4} className="text-right">ödenen {fmt.tl(g.in_progress_amount)}</td>
+                </tr>
+                <tr className="border-t border-line">
+                  <td className="py-1">Kademe dışı fiyat</td><td /><td className="text-right">{fmt.n(g.other_price_players)}</td>
+                  <td colSpan={4} className="text-right text-ink-2">
+                    {g.other_price_points.map((p) => `${fmt.tl(p.price)} ×${p.n}`).join(" · ")}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
     </section>
   );
 }

@@ -189,3 +189,42 @@ def test_upfront_vs_monthly_12_month_coverage():
     assert p["price"] == 119000 and p["discount_vs_monthly"] == pytest.approx(1 - 119000 / 117900)
     # 119.000 - (9.000 + 9.900) = 100.100 → kalan 10 ayda %1,1 zam başabaş
     assert p["breakeven_hike"] == pytest.approx(100100 / 99000 - 1)
+
+
+def test_plan_tiers_early_bird_and_deadline():
+    from app.services.season_analysis import coverage_months, plan_tiers
+
+    cov = coverage_months(date(2027, 7, 31))
+    rows = [Row(date(2026, 8, 1), date(2026, 8, 1), f"M{i}", "ALTYAPI", "MONTHLY", (date(2026, 8, 1),), False,
+                9900.0, 9900.0, 0.0, "POS") for i in range(5)]
+
+    def plan(key, paid, amount, kind="SEASON_UPFRONT"):
+        return Row(date(paid.year, paid.month, 1), paid, key, "ALTYAPI", kind, (), False, amount, amount, 0.0, "POS")
+
+    rows += [plan("E1", date(2026, 7, 20), 107000), plan("E2", date(2026, 8, 5), 107000),  # E2 son tarih sonrası
+             plan("S1", date(2026, 7, 25), 119000),
+             plan("T1", date(2026, 7, 28), 59500, "SEASON_INSTALLMENT"),  # taksitli standart plan
+             plan("T1", date(2026, 9, 28), 59500, "SEASON_INSTALLMENT"),
+             plan("X", date(2026, 8, 20), 130000)]
+    tiers = [{"group": "ALTYAPI", "tier": "EARLY", "label": "Erken kayıt", "price": 107000.0,
+              "valid_until": date(2026, 7, 31)},
+             {"group": "ALTYAPI", "tier": "STANDARD", "label": None, "price": 119000.0, "valid_until": None}]
+    (g,) = plan_tiers(rows, tiers, cov)
+    early, std = g["tiers"]
+    assert g["monthly_path"] == 12 * 9900
+    assert (early["players"], early["after_deadline"]) == (2, 1)
+    assert (std["players"], std["upfront"], std["installment"]) == (2, 1, 1)
+    assert early["discount_vs_monthly"] == pytest.approx(1 - 107000 / 118800)
+    assert g["other_price_players"] == 1 and g["other_price_amount"] == 130000
+    assert g["in_progress_players"] == 0
+
+
+async def test_plan_prices_api(client, admin):
+    body = [{"group": "ALTYAPI", "tier": "EARLY", "label": "Erken kayıt", "price": 107000},
+            {"group": "ALTYAPI", "tier": "STANDARD", "price": 119000}]
+    r = await client.put("/seasons/2026-2027/plan-prices", json=body, headers=admin)
+    assert r.status_code == 200, r.text
+    assert len((await client.get("/seasons/2026-2027/plan-prices", headers=admin)).json()) == 2
+    assert (await client.put("/seasons/yok/plan-prices", json=body, headers=admin)).status_code == 404
+    c = (await client.get("/ledger/compare?base=2025-2026&target=2026-2027", headers=admin)).json()
+    assert c["plan_tiers"]["target"][0]["tiers"][1]["players"] == 1  # sentetik defterde 119.000 peşin

@@ -241,7 +241,8 @@ model Season {
   endDate   DateTime @map("end_date") @db.Date
   isActive  Boolean  @default(false) @map("is_active")
 
-  teams Team[]
+  teams      Team[]
+  planPrices SeasonPlanPrice[]
 
   @@map("seasons")
 }
@@ -1123,4 +1124,29 @@ model LedgerEntry {
   @@index([sheetMonth])
   @@index([playerKey])
   @@map("ledger_entries")
+}
+
+enum PlanTier {
+  EARLY // erken kayıt
+  STANDARD
+  LATE // geç kayıt
+
+  @@map("plan_tier")
+}
+
+// Sezonluk plan fiyat kademeleri (ör. 2026-27 Altyapı: erken kayıt 107.000, standart 119.000).
+// Analiz, defterdeki sezonluk ödemeleri bu kademelere eşler.
+model SeasonPlanPrice {
+  id         Int       @id @default(autoincrement())
+  seasonId   Int       @map("season_id")
+  group      String // ALTYAPI | SPOR_OKULU | ...
+  tier       PlanTier
+  label      String? // "Erken kayıt"
+  price      Decimal   @db.Decimal(12, 2)
+  validUntil DateTime? @map("valid_until") @db.Date // erken kayıt son günü
+
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, group, tier])
+  @@map("season_plan_prices")
 }

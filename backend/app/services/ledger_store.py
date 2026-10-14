@@ -66,3 +66,10 @@ async def load_rows(conn: asyncpg.Connection, start: date, end: date) -> list[Ro
     return [Row(r["sheet_month"], r["paid_on"], r["player_key"], r["group"], r["kind"],
                 tuple(r["covered_months"] or ()), r["scholarship"], r["amount"], r["dues_amount"],
                 r["textile_amount"], r["channel"], r["cancelled"]) for r in recs]
+
+
+async def plan_prices(conn: asyncpg.Connection, season: str) -> list[dict]:
+    return [dict(r) | {"price": float(r["price"])} for r in await conn.fetch(
+        """SELECT p."group", p.tier::text AS tier, p.label, p.price, p.valid_until
+           FROM season_plan_prices p JOIN seasons s ON s.id = p.season_id WHERE s.name=$1
+           ORDER BY p."group", p.price""", season)]

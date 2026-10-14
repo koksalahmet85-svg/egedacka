@@ -190,6 +190,88 @@ def coverage_months(season_end: date, months: int = 12) -> list[date]:
     return out
 
 
+def _ladders(rows: list[Row]) -> dict[str, dict[date, float]]:
+    ladder: dict[str, dict[date, float]] = defaultdict(dict)
+    for p in price_ladder(rows):
+        y, m = map(int, p["month"].split("-"))
+        ladder[p["group"]][date(y, m, 1)] = p["price"]
+    return ladder
+
+
+def _monthly_path(prices: dict[date, float], coverage: list[date]) -> tuple[float, float, int]:
+    """(bilinen ayların toplamı, tahmini ayların toplamı, tahmini ay sayısı).
+    Merdivende olmayan ay son bilinen fiyatla doldurulur (sezon içi zam yok varsayımı)."""
+    known = sorted(prices)
+    known_sum = projected_sum = 0.0
+    projected, last = 0, None
+    for m in coverage:
+        if m in prices:
+            last = prices[m]
+            known_sum += last
+        else:
+            projected += 1
+            if last is None:  # kapsamın başı merdivenden önceyse ilk bilinen fiyat
+                last = prices[known[0]]
+            projected_sum += last
+    return known_sum, projected_sum, projected
+
+
+def plan_tiers(rows: Iterable[Row], tiers: list[dict], coverage: list[date]) -> list[dict]:
+    """Tanımlı sezonluk plan kademeleri (erken kayıt / standart / geç) için gerçekleşme.
+
+    Oyuncunun sezonluk toplamı (peşin + taksitler) bir kademe fiyatına ±%1 yakınsa o
+    kademeden alınmış sayılır; taksitli plan da aynı ürün olduğundan dahildir. Kademede
+    `valid_until` varsa, o tarihten sonra başlayan ödemeler "son tarih sonrası" sayılır
+    (erken fiyatın süresi dolduktan sonra verilmesi = gelir kaçağı)."""
+    rows = [r for r in rows if not r.cancelled]
+    ladder = _ladders(rows)
+    plans: dict[tuple[str, str], dict] = {}
+    for r in rows:
+        if r.kind not in SEASON_KINDS or r.scholarship:
+            continue
+        p = plans.setdefault((r.group, r.player_key), {"total": 0.0, "first": r.paid_on, "upfront": False})
+        p["total"] += r.dues_amount
+        p["first"] = min(p["first"], r.paid_on)
+        p["upfront"] |= r.kind == "SEASON_UPFRONT"
+    out = []
+    for group in sorted({t["group"] for t in tiers}):
+        g_tiers = sorted((t for t in tiers if t["group"] == group), key=lambda t: t["price"])
+        g_plans = [v for (g, _), v in plans.items() if g == group]
+        known_sum, projected_sum, projected = _monthly_path(ladder[group], coverage) if ladder.get(group) else (0, 0, 0)
+        path = known_sum + projected_sum
+        matched_ids: set[int] = set()
+        rows_out = []
+        for t in g_tiers:
+            hits = [(i, v) for i, v in enumerate(g_plans) if abs(v["total"] - t["price"]) <= t["price"] * 0.01]
+            matched_ids |= {i for i, _ in hits}
+            dates = sorted(v["first"] for _, v in hits)
+            vu = t.get("valid_until")
+            rows_out.append({
+                "tier": t["tier"], "label": t.get("label") or t["tier"], "price": t["price"],
+                "valid_until": vu.isoformat() if vu else None,
+                "players": len(hits), "upfront": sum(v["upfront"] for _, v in hits),
+                "installment": sum(not v["upfront"] for _, v in hits),
+                "first_paid": dates[0].isoformat() if dates else None,
+                "last_paid": dates[-1].isoformat() if dates else None,
+                "after_deadline": sum(d > vu for d in dates) if vu else None,
+                "discount_vs_monthly": 1 - t["price"] / path if path else None,
+                "breakeven_hike": (t["price"] - known_sum) / projected_sum - 1 if projected_sum else None,
+            })
+        others = [v for i, v in enumerate(g_plans) if i not in matched_ids]
+        # Yalnız taksit ödemiş ve toplamı en yüksek kademenin altında kalan = taksiti sürüyor.
+        top = g_tiers[-1]["price"] if g_tiers else 0
+        in_progress = [v for v in others if not v["upfront"] and v["total"] < top * 0.99]
+        other_price = [v for v in others if v not in in_progress]
+        prices = Counter(round(v["total"], -3) for v in other_price)
+        out.append({"group": group, "monthly_path": path, "projected_months": projected, "tiers": rows_out,
+                    "in_progress_players": len(in_progress),
+                    "in_progress_amount": sum(v["total"] for v in in_progress),
+                    "other_price_players": len(other_price),
+                    "other_price_amount": sum(v["total"] for v in other_price),
+                    "other_price_points": [{"price": p, "n": n} for p, n in prices.most_common(5)]})
+    return out
+
+
 def upfront_vs_monthly(rows: Iterable[Row], coverage: list[date]) -> list[dict]:
     """Sezonluk peşin fiyatı ↔ aynı 12 ayı aylık ödemenin toplamı.
 
@@ -197,28 +279,13 @@ def upfront_vs_monthly(rows: Iterable[Row], coverage: list[date]) -> list[dict]:
     aylar son bilinen fiyatla doldurulur (= sezon içinde zam yapılmazsa) ve `projected_months`
     ile işaretlenir. Peşin ödemenin velinin gözündeki değeri bu farktır."""
     rows = [r for r in rows if not r.cancelled]
-    ladder: dict[str, dict[date, float]] = defaultdict(dict)
-    for p in price_ladder(rows):
-        y, m = map(int, p["month"].split("-"))
-        ladder[p["group"]][date(y, m, 1)] = p["price"]
     out = []
-    for group, prices in sorted(ladder.items()):
+    for group, prices in sorted(_ladders(rows).items()):
         ups = [r.dues_amount for r in rows
                if r.group == group and r.kind == "SEASON_UPFRONT" and not r.scholarship]
         if len(ups) < 5:
             continue
-        known = sorted(prices)
-        known_sum = projected_sum = 0.0
-        projected, last = 0, None
-        for m in coverage:
-            if m in prices:
-                last = prices[m]
-                known_sum += last
-            else:
-                projected += 1
-                if last is None:  # kapsamın başı merdivenden önceyse ilk bilinen fiyat
-                    last = prices[known[0]]
-                projected_sum += last
+        known_sum, projected_sum, projected = _monthly_path(prices, coverage)
         path = known_sum + projected_sum
         total_n = len(ups)
         # n<3 fiyat noktası kardeş/burs/özel anlaşma gürültüsüdür; plan fiyatı sayılmaz.
@@ -239,7 +306,8 @@ def upfront_vs_monthly(rows: Iterable[Row], coverage: list[date]) -> list[dict]:
 
 def compare(base_name: str, base: list[Row], target_name: str, target: list[Row],
             mode: str = "economic", base_coverage: list[date] | None = None,
-            target_coverage: list[date] | None = None) -> dict[str, Any]:
+            target_coverage: list[date] | None = None, base_tiers: list[dict] | None = None,
+            target_tiers: list[dict] | None = None) -> dict[str, Any]:
     """mode='cash': dönemler defter sayfalarına göre (nakit esası).
     mode='economic': sezonluk ödemeler ait oldukları sezona yazılır (önerilen kıyas)."""
     season_only: frozenset[date] = frozenset()
@@ -318,5 +386,9 @@ def compare(base_name: str, base: list[Row], target_name: str, target: list[Row]
         "season_plan_value": {
             "base": upfront_vs_monthly(base, base_coverage) if base_coverage else [],
             "target": upfront_vs_monthly(target, target_coverage) if target_coverage else [],
+        },
+        "plan_tiers": {
+            "base": plan_tiers(base, base_tiers, base_coverage) if base_tiers and base_coverage else [],
+            "target": plan_tiers(target, target_tiers, target_coverage) if target_tiers and target_coverage else [],
         },
     }

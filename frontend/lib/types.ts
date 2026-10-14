@@ -139,6 +139,32 @@ export interface SeasonComparison {
   };
   price_changes: { group: string; month: string; base_price: number; target_price: number; change: number | null }[];
   season_plan_value: { base: SeasonPlanValue[]; target: SeasonPlanValue[] };
+  plan_tiers: { base: PlanTierGroup[]; target: PlanTierGroup[] };
+}
+
+export interface PlanTierGroup {
+  group: string;
+  monthly_path: number;
+  projected_months: number;
+  tiers: {
+    tier: "EARLY" | "STANDARD" | "LATE";
+    label: string;
+    price: number;
+    valid_until: string | null;
+    players: number;
+    upfront: number;
+    installment: number;
+    first_paid: string | null;
+    last_paid: string | null;
+    after_deadline: number | null;
+    discount_vs_monthly: number | null;
+    breakeven_hike: number | null;
+  }[];
+  in_progress_players: number;
+  in_progress_amount: number;
+  other_price_players: number;
+  other_price_amount: number;
+  other_price_points: { price: number; n: number }[];
 }
 
 export interface SeasonPlanValue {
