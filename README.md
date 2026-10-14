@@ -23,6 +23,21 @@ docker compose run --rm api python -m app.seed   # opsiyonel: 750 sporculuk SENT
 Panel: http://localhost:3000 · API dokümanı (Swagger): http://localhost:8000/api/docs
 Demo girişleri (şifre `demo1234`): `admin@`, `direktor@`, `koc@`, `muhasebe@`, `pazarlama@egealfa.com`
 
+### Gerçek kullanım için ilk kurulum (demo verisi OLMADAN)
+
+```bash
+cp .env.example .env          # JWT_SECRET'a en az 32 karakterlik rastgele bir değer yazın
+docker compose up -d --build  # ilk sefer 5-10 dk
+docker compose run --rm api python -m app.cli create-admin siz@egealfa.com
+docker compose run --rm api python -m app.cli set-season 2025-2026 2025-08-01 2026-07-31
+docker compose run --rm api python -m app.cli set-season 2026-2027 2026-08-01 2027-07-31 --active
+docker compose run --rm api python -m app.cli set-plan-price 2026-2027 ALTYAPI EARLY 107000 2026-07-31 "Erken kayıt"
+docker compose run --rm api python -m app.cli set-plan-price 2026-2027 ALTYAPI STANDARD 119000
+```
+
+Sonra http://localhost:3000 → giriş → **Sezon karşılaştırma** → **Defteri yükle** ile Excel'i yükleyin.
+Demo verisi (`app.seed`) ile gerçek veri aynı veritabanına yüklenmemelidir.
+
 Docker olmadan geliştirme:
 
 ```bash
