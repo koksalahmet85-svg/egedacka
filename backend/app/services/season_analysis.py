@@ -179,8 +179,67 @@ def _months_between(a: date, b: date) -> int:
     return (a.year - b.year) * 12 + a.month - b.month
 
 
+def coverage_months(season_end: date, months: int = 12) -> list[date]:
+    """Sezonluk planın kapsadığı aylar: sezon bitişinden geriye `months` ay
+    (2026-2027 → Ağu 2026 … Tem 2027)."""
+    last = date(season_end.year, season_end.month, 1)
+    out = []
+    for i in range(months - 1, -1, -1):
+        y, m = divmod(last.year * 12 + last.month - 1 - i, 12)
+        out.append(date(y, m + 1, 1))
+    return out
+
+
+def upfront_vs_monthly(rows: Iterable[Row], coverage: list[date]) -> list[dict]:
+    """Sezonluk peşin fiyatı ↔ aynı 12 ayı aylık ödemenin toplamı.
+
+    Aylık yol, defterden çıkan fiili fiyat merdivenidir (price_ladder). Henüz yaşanmamış
+    aylar son bilinen fiyatla doldurulur (= sezon içinde zam yapılmazsa) ve `projected_months`
+    ile işaretlenir. Peşin ödemenin velinin gözündeki değeri bu farktır."""
+    rows = [r for r in rows if not r.cancelled]
+    ladder: dict[str, dict[date, float]] = defaultdict(dict)
+    for p in price_ladder(rows):
+        y, m = map(int, p["month"].split("-"))
+        ladder[p["group"]][date(y, m, 1)] = p["price"]
+    out = []
+    for group, prices in sorted(ladder.items()):
+        ups = [r.dues_amount for r in rows
+               if r.group == group and r.kind == "SEASON_UPFRONT" and not r.scholarship]
+        if len(ups) < 5:
+            continue
+        known = sorted(prices)
+        known_sum = projected_sum = 0.0
+        projected, last = 0, None
+        for m in coverage:
+            if m in prices:
+                last = prices[m]
+                known_sum += last
+            else:
+                projected += 1
+                if last is None:  # kapsamın başı merdivenden önceyse ilk bilinen fiyat
+                    last = prices[known[0]]
+                projected_sum += last
+        path = known_sum + projected_sum
+        total_n = len(ups)
+        # n<3 fiyat noktası kardeş/burs/özel anlaşma gürültüsüdür; plan fiyatı sayılmaz.
+        points = [(pr, n) for pr, n in Counter(ups).most_common(3) if n >= 3]
+        out.append({
+            "group": group,
+            "monthly_path": path,
+            "projected_months": projected,
+            "price_points": [{
+                "price": pr, "n": n, "share": n / total_n,
+                "discount_vs_monthly": 1 - pr / path if path else None,
+                # Kalan aylarda aylık aidata ne kadar zam gelirse peşin aylıkla başabaş olur?
+                "breakeven_hike": (pr - known_sum) / projected_sum - 1 if projected_sum else None,
+            } for pr, n in points],
+        })
+    return out
+
+
 def compare(base_name: str, base: list[Row], target_name: str, target: list[Row],
-            mode: str = "economic") -> dict[str, Any]:
+            mode: str = "economic", base_coverage: list[date] | None = None,
+            target_coverage: list[date] | None = None) -> dict[str, Any]:
     """mode='cash': dönemler defter sayfalarına göre (nakit esası).
     mode='economic': sezonluk ödemeler ait oldukları sezona yazılır (önerilen kıyas)."""
     season_only: frozenset[date] = frozenset()
@@ -254,4 +313,10 @@ def compare(base_name: str, base: list[Row], target_name: str, target: list[Row]
             "recent_not_yet_returned": len(recent - t_payers),
         },
         "price_changes": price_changes,
+        # Peşin ↔ aylık (ekonomik bölme sonrası: Temmuz'da alınan peşinler hedef sezonun planıdır,
+        # Temmuz aylık aidatı ise baz sezonun fiyat merdiveninde kalır).
+        "season_plan_value": {
+            "base": upfront_vs_monthly(base, base_coverage) if base_coverage else [],
+            "target": upfront_vs_monthly(target, target_coverage) if target_coverage else [],
+        },
     }

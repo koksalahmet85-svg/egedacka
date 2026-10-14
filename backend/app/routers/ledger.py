@@ -89,7 +89,9 @@ async def compare(base: str, target: str, mode: str = Query("economic", pattern=
     b_rows, t_rows = await ledger_store.load_rows(conn, b0, b1), await ledger_store.load_rows(conn, t0, t1)
     if not b_rows or not t_rows:
         raise HTTPException(404, "Seçilen sezonlarda defter kaydı yok")
-    return season_analysis.compare(base, b_rows, target, t_rows, mode)
+    # Sezonluk plan 12 ay kapsar: sezon bitişinden geriye 12 ay.
+    return season_analysis.compare(base, b_rows, target, t_rows, mode,
+                                   season_analysis.coverage_months(b1), season_analysis.coverage_months(t1))
 
 
 @router.get("/ledger/not-returned")

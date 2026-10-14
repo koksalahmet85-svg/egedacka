@@ -138,6 +138,14 @@ export interface SeasonComparison {
     recent_not_yet_returned: number;
   };
   price_changes: { group: string; month: string; base_price: number; target_price: number; change: number | null }[];
+  season_plan_value: { base: SeasonPlanValue[]; target: SeasonPlanValue[] };
+}
+
+export interface SeasonPlanValue {
+  group: string;
+  monthly_path: number; // aynı 12 ayı aylık ödemenin toplamı
+  projected_months: number; // henüz yaşanmamış, son fiyatla doldurulan ay sayısı
+  price_points: { price: number; n: number; share: number; discount_vs_monthly: number | null; breakeven_hike: number | null }[];
 }
 
 export interface NotReturnedPlayer {

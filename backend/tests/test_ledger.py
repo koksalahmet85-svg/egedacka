@@ -165,3 +165,27 @@ async def test_import_and_compare_api(client, admin, conn):
 async def test_ledger_requires_finance_role(client, login):
     coach = await login("coach1@t")
     assert (await client.get("/ledger/compare?base=2025-2026&target=2026-2027", headers=coach)).status_code == 403
+
+
+def test_upfront_vs_monthly_12_month_coverage():
+    from app.services.season_analysis import coverage_months, upfront_vs_monthly
+
+    cov = coverage_months(date(2027, 7, 31))
+    assert cov[0] == date(2026, 8, 1) and cov[-1] == date(2027, 7, 1) and len(cov) == 12
+
+    def monthly(m, price, i):
+        return Row(m, m, f"P{i}", "ALTYAPI", "MONTHLY", (m,), False, price, price, 0.0, "POS")
+
+    rows = [monthly(date(2026, 8, 1), 9000.0, i) for i in range(6)]
+    rows += [monthly(date(2026, 9, 1), 9900.0, i) for i in range(6)]
+    rows += [Row(date(2026, 7, 1), date(2026, 7, 1), f"U{i}", "ALTYAPI", "SEASON_UPFRONT", (), False,
+                 119000.0, 119000.0, 0.0, "POS") for i in range(5)]
+    rows += [Row(date(2026, 7, 1), date(2026, 7, 1), "X", "ALTYAPI", "SEASON_UPFRONT", (), False,
+                 200000.0, 200000.0, 0.0, "POS")]  # tekil fiyat noktası: gürültü, raporlanmaz
+    (v,) = upfront_vs_monthly(rows, cov)
+    # Ağu 9.000 + Eyl 9.900 + kalan 10 ay son fiyatla (zam yok varsayımı)
+    assert v["monthly_path"] == 9000 + 11 * 9900 and v["projected_months"] == 10
+    (p,) = v["price_points"]
+    assert p["price"] == 119000 and p["discount_vs_monthly"] == pytest.approx(1 - 119000 / 117900)
+    # 119.000 - (9.000 + 9.900) = 100.100 → kalan 10 ayda %1,1 zam başabaş
+    assert p["breakeven_hike"] == pytest.approx(100100 / 99000 - 1)

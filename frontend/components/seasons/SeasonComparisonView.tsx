@@ -95,13 +95,13 @@ function Body({ d, mode, setMode, notReturned }: {
           {(["economic", "cash"] as const).map((m) => (
             <button key={m} onClick={() => setMode(m)} aria-pressed={mode === m}
               className={`rounded-full border px-3 py-1 ${mode === m ? "border-brand bg-brand text-white" : "border-line text-ink-2"}`}>
-              {m === "economic" ? "Ekonomik (önerilen)" : "Kasa (defter sayfası)"}
+              {m === "economic" ? "Sezon bazlı" : "Kasa (defter sayfası)"}
             </button>
           ))}
         </div>
         <p className="text-ink-2">
           {mode === "economic"
-            ? "Temmuz'da alınan sezonluk peşin/taksit ödemeleri ait oldukları yeni sezona yazılır."
+            ? "Temmuz'da alınan sezonluk peşin/taksit ödemeleri kapsadıkları yeni sezona (12 ay) yazılır."
             : "Her ödeme, defterde girildiği ayın sezonuna yazılır."}
           {" "}Kıyas penceresi: {windowLabel}.
         </p>
@@ -145,6 +145,8 @@ function Body({ d, mode, setMode, notReturned }: {
           </table>
         </section>
       </div>
+
+      <PlanValue d={d} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <section className="min-w-0 overflow-x-auto rounded-xl border border-line bg-surface p-4">
@@ -214,5 +216,48 @@ function Body({ d, mode, setMode, notReturned }: {
         )}
       </section>
     </>
+  );
+}
+
+function PlanValue({ d }: { d: SeasonComparison }) {
+  const sides = [
+    { name: d.base.name, rows: d.season_plan_value.base },
+    { name: d.target.name, rows: d.season_plan_value.target },
+  ];
+  return (
+    <section className="overflow-x-auto rounded-xl border border-line bg-surface p-4">
+      <h2 className="font-semibold">Sezonluk peşin ↔ 12 ay aylık ödeme</h2>
+      <p className="mb-3 text-xs text-muted">
+        Aylık yol, defterdeki fiili aylık aidat fiyatlarından hesaplanır. Henüz gelmemiş aylar son fiyatla
+        doldurulur (sezon içi zam yok varsayımı). Peşin, ancak aylık yoldan ucuzsa veli için avantajlıdır.
+      </p>
+      <table className="tabular w-full min-w-[640px] text-sm">
+        <thead className="text-left text-ink-2">
+          <tr>
+            <th>Sezon · grup</th><th className="text-right">12 ay aylık</th><th className="text-right">Peşin fiyat</th>
+            <th className="text-right">Alan</th><th className="text-right">Peşin avantajı</th>
+            <th className="text-right" title="Kalan aylarda aylık aidata bu oranda zam gelirse peşin ile aylık eşitlenir">Başabaş zam</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sides.flatMap(({ name, rows }) => rows.flatMap((g) =>
+            g.price_points.length === 0
+              ? [<tr key={name + g.group} className="border-t border-line"><td className="py-1">{name} · {GROUP_TR[g.group] ?? g.group}</td>
+                  <td className="text-right">{fmt.tl(g.monthly_path)}</td><td colSpan={4} className="text-right text-muted">yeterli peşin kaydı yok</td></tr>]
+              : g.price_points.map((p, i) => (
+                <tr key={name + g.group + p.price} className="border-t border-line">
+                  <td className="py-1">{i === 0 ? `${name} · ${GROUP_TR[g.group] ?? g.group}` : ""}</td>
+                  <td className="text-right">{i === 0 ? <>{fmt.tl(g.monthly_path)}{g.projected_months > 0 && <span className="text-xs text-muted"> ({g.projected_months} ay tahmin)</span>}</> : ""}</td>
+                  <td className="text-right">{fmt.tl(p.price)}</td>
+                  <td className="text-right">{p.n} · {fmt.pct(p.share)}</td>
+                  <td className={`text-right font-medium ${(p.discount_vs_monthly ?? 0) < 0.05 ? "text-critical" : "text-good"}`}>
+                    {p.discount_vs_monthly == null ? "—" : fmt.pct(p.discount_vs_monthly)}
+                  </td>
+                  <td className="text-right">{p.breakeven_hike == null ? "—" : fmt.pct(p.breakeven_hike)}</td>
+                </tr>
+              ))))}
+        </tbody>
+      </table>
+    </section>
   );
 }
