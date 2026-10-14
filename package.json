@@ -1,0 +1,12 @@
+{
+  "name": "ege-alfa-db",
+  "private": true,
+  "scripts": {
+    "db:migrate": "prisma migrate deploy",
+    "db:dev": "prisma migrate dev",
+    "db:validate": "prisma validate"
+  },
+  "devDependencies": {
+    "prisma": "6.19.3"
+  }
+}

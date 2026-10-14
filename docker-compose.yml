@@ -1,0 +1,62 @@
+# Ege Alfa Spor Kulübü — tam yığın.
+#   docker compose up -d --build
+#   docker compose run --rm api python -m app.seed   (opsiyonel: sentetik demo verisi)
+# Panel: http://localhost:3000  ·  API dokümanı: http://localhost:8000/api/docs
+x-api-env: &api-env
+  DATABASE_URL: postgresql://egealfa:${POSTGRES_PASSWORD:-egealfa}@db:5432/egealfa
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET zorunlu (en az 32 karakter)}
+  CORS_ORIGINS: '["http://localhost:3000"]'
+  META_APP_SECRET: ${META_APP_SECRET:-}
+  META_VERIFY_TOKEN: ${META_VERIFY_TOKEN:-}
+  META_PAGE_TOKEN: ${META_PAGE_TOKEN:-}
+  PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: egealfa
+      POSTGRES_USER: egealfa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-egealfa}
+      TZ: Europe/Istanbul
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U egealfa"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build: { context: ., dockerfile: Dockerfile.migrate }
+    environment:
+      DATABASE_URL: postgresql://egealfa:${POSTGRES_PASSWORD:-egealfa}@db:5432/egealfa
+    depends_on: { db: { condition: service_healthy } }
+    restart: "no"
+
+  api:
+    build: ./backend
+    environment: *api-env
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    environment: *api-env
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    environment:
+      API_INTERNAL_URL: http://api:8000/api/v1
+    depends_on: { api: { condition: service_healthy } }
+    ports: ["3000:3000"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
