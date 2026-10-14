@@ -5,3 +5,8 @@ __pycache__/
 *.tsbuildinfo
 next-env.d.ts
 .env
+
+# Gerçek kulüp verisi (çocuk adları, tahsilatlar) asla repoya girmez — KVKK
+*.xlsx
+*.xls
+*.csv

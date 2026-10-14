@@ -6,7 +6,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from .core import db, errors
 from .core.config import get_settings
-from .routers import athletes, auth, crm, dashboard, finance, hr, performance, portal, teams, training, webhooks
+from .routers import (athletes, auth, crm, dashboard, finance, hr, ledger, performance, portal, teams, training,
+                      webhooks)
 
 
 @asynccontextmanager
@@ -23,7 +24,7 @@ def create_app() -> FastAPI:
     app.add_middleware(CORSMiddleware, allow_origins=get_settings().cors_origins, allow_credentials=True,
                        allow_methods=["*"], allow_headers=["*"])
     errors.install(app)
-    for r in (auth, athletes, teams, training, hr, performance, finance, crm, dashboard, portal, webhooks):
+    for r in (auth, athletes, teams, training, hr, performance, finance, ledger, crm, dashboard, portal, webhooks):
         app.include_router(r.router, prefix="/api/v1")
 
     @app.get("/healthz", include_in_schema=False)

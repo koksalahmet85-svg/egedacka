@@ -28,7 +28,7 @@ Docker olmadan geliştirme:
 ```bash
 npm install && DATABASE_URL=postgresql://... npx prisma migrate deploy
 cd backend && pip install -r requirements-dev.txt && uvicorn app.main:app --reload
-python -m pytest            # 27 test; yerel PostgreSQL'de geçici "egealfa_test" DB açar
+python -m pytest            # 32 test; yerel PostgreSQL'de geçici "egealfa_test" DB açar
 cd ../frontend && npm install && npm run dev
 ```
 
@@ -94,7 +94,7 @@ Tarayıcı ──(ilk yük)──> Next.js sunucu bileşeni ──(iç ağ, Bear
 **Bilinçli olarak kullanılmayan:** ACWR (akut:kronik yük oranı) — sakatlık tahmin aracı olarak metodolojik açıdan çürütüldü (Impellizzeri et al. 2020, *IJSPP* 15(6)).
 **Uyarı:** `metric_definitions.typical_error` değerleri literatür yaklaşığıdır; kulübün kendi test-tekrar test ölçümüyle güncellenmelidir.
 
-## Modül → endpoint haritası (73 uç)
+## Modül → endpoint haritası (79 uç)
 | Modül | Önek | Öne çıkanlar |
 |---|---|---|
 | Kimlik | `/auth` | login (OAuth2 form), me |
@@ -105,11 +105,26 @@ Tarayıcı ──(ilk yük)──> Next.js sunucu bileşeni ──(iç ağ, Bear
 | Performans | `/performance` | test bataryası · takım sıralaması · kutu skor (tutarlılık kontrolü) · aylık rapor üret/yayımla |
 | Finans | `/finance` | aidat planı · abonelik/dondurma · `invoices/run/{ay}` · tahsilat + makbuz · gecikme listesi · nakit akışı · **takım bazında katkı payı** |
 | CRM | `/crm` | lead (tekilleştirme) · temas · aşama · deneme antrenmanı · `convert` (lead→sporcu tek transaction) · harcama upsert · funnel · roi |
+| Tahsilat defteri | `/ledger`, `/seasons` | Excel import · anomaliler · sezon karşılaştırma (economic/cash) · dönmeyen oyuncular |
 | Yönetim | `/dashboard/executive` | finans + pazarlama tek yanıt |
 | Veli portalı | `/portal` | çocuklar · 14 günlük takvim · raporlar · devam grafiği · fatura/makbuz (guardian_id JWT'den) |
 | Webhook | `/webhooks` | Meta Lead Ads (doğrulama + HMAC) · ödeme sağlayıcı |
 
 Yetki: `ADMIN`, `MANAGER`, `COACH` (yalnız kendi takımları/seansları), `ACCOUNTANT`, `MARKETING`, `GUARDIAN` (yalnız kendi çocukları). Testler bu izolasyonu doğrular.
+
+## Tahsilat defteri (Excel) ve sezon karşılaştırma
+
+Sistem öncesi aylık Excel defterleri (`TEMMUZ 25`, `AĞUSTOS 26` … sayfaları) panelden **Sezon karşılaştırma → Defteri yükle** ile ya da `POST /api/v1/ledger/import` ile içe aktarılır.
+
+- **Sezon aralıkları** yönetici tarafından tanımlanır: `PUT /api/v1/seasons` (ör. `2025-2026: 2025-07-01 → 2026-07-31`, `2026-2027: 2026-08-01 → 2027-07-31`).
+- **Serbest metin "DÖNEM"** sınıflandırılır: aylık, kısmi (yarım/eksik), çok aylık, sezonluk peşin, sezonluk taksit, tekstil, etkinlik (İstanbul, Yeşil Tribün), geçmiş borç, iptal.
+- **Veri kalitesi sessizce düzeltilmez**: hatalı tarih (`01.08.205`), metin tutar (`₺4.700,00`, `₺5,200.00`), TUTAR ≠ AİDAT+FORMA uyuşmazlığı vb. her düzeltme `GET /ledger/anomalies` listesine düşer. Tekstilsiz satırda iki tutar çelişirse **küçük olan** alınır (gelir şişmez).
+- **Yeniden yükleme güvenli**: dosyadaki sayfalar tamamen değiştirilir (defter canlı belge; satır kayması bozmaz).
+- **İki hesap modu**: `cash` (her ödeme defter sayfasının sezonuna) ve `economic` (önerilen: Temmuz'da alınan sezonluk peşin/taksit yeni sezona yazılır).
+- **Hizalanmış kıyas**: hedef sezonun kapsadığı aylar, son ayda aynı güne kadar, geçen yılın aynı penceresiyle kıyaslanır.
+- `GET /ledger/not-returned`: geçen sezonun son 3 ayında ödeyip bu sezon henüz ödemeyenler (geri kazanım arama listesi).
+- Defter tahsilatları `v_cash_movements` görünümüne `LEDGER_*` kategorileriyle girer. **Canlı tahsilata geçilen aydan sonra defter yüklenmemelidir** (çift sayım).
+- Gerçek defter dosyaları `.gitignore` ile repodan dışlanmıştır; testler sentetik çalışma kitabı üretir.
 
 ## Bilinen sınırlar / sonraki adımlar
 - e-Arşiv entegratörü, SMS (Netgsm/İleti Merkezi) ve WhatsApp Cloud API sağlayıcıları arayüz olarak hazır (`services/notify.py → Sender`), gerçek bağlantı anahtarları gelince takılmalı.

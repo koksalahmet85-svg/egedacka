@@ -51,6 +51,9 @@ export function ExecutiveDashboard({ initialRange, initialData }: Props) {
           ))}
           <button onClick={() => void refresh()} className="ml-1 rounded-full border border-line px-3 py-1 text-sm"
             aria-label="Yenile">↻</button>
+          <a href="/dashboard/sezonlar" className="ml-1 rounded-full border border-line px-3 py-1 text-sm text-ink-2">
+            Sezon karşılaştırma
+          </a>
           <form method="post" action="/api/auth/logout">
             <button className="ml-1 rounded-full border border-line px-3 py-1 text-sm text-ink-2">Çıkış</button>
           </form>

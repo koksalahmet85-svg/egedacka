@@ -1,0 +1,257 @@
+"""Tahsilat defteri sezon analizi (saf fonksiyonlar; girdi: ledger satırları).
+
+İki sezonu karşılaştırırken tam sezon toplamları yanıltıcıdır (biri 13 ay, diğeri
+2,5 ay olabilir). Bu yüzden asıl kıyas "hizalanmış pencere" üzerinden yapılır:
+hedef sezonun kapsadığı takvim aylarının aynısı, son ayda da aynı güne kadar
+(ör. 1 Ağu–13 Eki 2026 ↔ 1 Ağu–13 Eki 2025).
+"""
+from __future__ import annotations
+
+import statistics
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from datetime import date
+from typing import Any, Iterable
+
+SEASON_KINDS = ("SEASON_UPFRONT", "SEASON_INSTALLMENT")
+MONTH_KINDS = ("MONTHLY", "MULTI_MONTH", "PARTIAL")
+
+
+@dataclass(frozen=True)
+class Row:
+    sheet_month: date
+    paid_on: date
+    player_key: str
+    group: str
+    kind: str
+    covered_months: tuple[date, ...]
+    scholarship: bool
+    amount: float
+    dues_amount: float
+    textile_amount: float
+    channel: str
+    cancelled: bool = False
+
+
+def _pct(a: float, b: float) -> float | None:
+    return None if not b else a / b
+
+
+def _growth(new: float, old: float) -> float | None:
+    return None if not old else new / old - 1
+
+
+def summarize(rows: Iterable[Row]) -> dict[str, Any]:
+    rows = [r for r in rows if not r.cancelled]
+    total = sum(r.amount for r in rows)
+    dues = sum(r.dues_amount for r in rows if r.kind not in ("EVENT",))
+    textile = sum(r.textile_amount for r in rows)
+    event = sum(r.amount for r in rows if r.kind == "EVENT")
+
+    by_kind: dict[str, dict] = defaultdict(lambda: {"amount": 0.0, "rows": 0})
+    by_group: dict[str, dict] = defaultdict(lambda: {"amount": 0.0, "dues": 0.0, "payers": set()})
+    by_channel: Counter = Counter()
+    by_month: dict[date, dict] = defaultdict(lambda: {"amount": 0.0, "dues": 0.0, "rows": 0, "payers": set()})
+    for r in rows:
+        by_kind[r.kind]["amount"] += r.amount
+        by_kind[r.kind]["rows"] += 1
+        g = by_group[r.group]
+        g["amount"] += r.amount
+        g["dues"] += r.dues_amount
+        g["payers"].add(r.player_key)
+        by_channel[r.channel] += r.amount
+        m = by_month[r.sheet_month]
+        m["amount"] += r.amount
+        m["dues"] += r.dues_amount
+        m["rows"] += 1
+        m["payers"].add(r.player_key)
+
+    payers = {r.player_key for r in rows if r.kind != "EVENT"}
+    season_payers = {r.player_key for r in rows if r.kind in SEASON_KINDS}
+    season_amount = sum(r.dues_amount for r in rows if r.kind in SEASON_KINDS)
+
+    return {
+        "total": total,
+        "dues": dues,
+        "textile": textile,
+        "event": event,
+        "rows": len(rows),
+        "payers": len(payers),
+        "season_plan": {
+            "payers": len(season_payers),
+            "amount": season_amount,
+            "share_of_dues": _pct(season_amount, dues),
+            "upfront_payers": len({r.player_key for r in rows if r.kind == "SEASON_UPFRONT"}),
+            "upfront_amount": sum(r.dues_amount for r in rows if r.kind == "SEASON_UPFRONT"),
+        },
+        "by_kind": {k: v for k, v in sorted(by_kind.items(), key=lambda kv: -kv[1]["amount"])},
+        "by_group": {k: {"amount": v["amount"], "dues": v["dues"], "payers": len(v["payers"])}
+                     for k, v in sorted(by_group.items(), key=lambda kv: -kv[1]["amount"])},
+        "by_channel": {k: {"amount": v, "share": _pct(v, total)} for k, v in by_channel.most_common()},
+        "by_month": [{"month": m.isoformat()[:7], "amount": v["amount"], "dues": v["dues"], "rows": v["rows"],
+                      "payers": len(v["payers"])} for m, v in sorted(by_month.items())],
+        "price_ladder": price_ladder(rows),
+        "timeliness": timeliness(rows),
+    }
+
+
+def price_ladder(rows: Iterable[Row]) -> list[dict]:
+    """Aylık aidatın fiili fiyatı: tek aylık, bursuz ödemelerin modu (en sık tutar).
+    Liste fiyatı yoksa defterden fiyat geçmişini çıkarmanın en sağlam yolu."""
+    buckets: dict[tuple[str, date], list[float]] = defaultdict(list)
+    for r in rows:
+        if r.kind == "MONTHLY" and not r.scholarship and len(r.covered_months) == 1 and r.textile_amount == 0:
+            buckets[(r.group, r.covered_months[0])].append(r.dues_amount)
+    out = []
+    for (group, month), vals in sorted(buckets.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+        if len(vals) < 5:  # küçük örneklemde mod anlamsız
+            continue
+        mode, n = Counter(vals).most_common(1)[0]
+        out.append({"group": group, "month": month.isoformat()[:7], "price": mode, "share_at_price": n / len(vals),
+                    "n": len(vals), "median": statistics.median(vals)})
+    return out
+
+
+def timeliness(rows: Iterable[Row]) -> dict[str, Any]:
+    """Tek aylık aidatlar için ödeme zamanı. Kapsanan ayın 10'una kadar = zamanında."""
+    early = on_time = late_in_month = after_month = 0
+    days_late: list[int] = []
+    for r in rows:
+        if r.kind != "MONTHLY" or len(r.covered_months) != 1:
+            continue
+        cm = r.covered_months[0]
+        if r.paid_on < cm:
+            early += 1
+        elif r.paid_on.year == cm.year and r.paid_on.month == cm.month:
+            if r.paid_on.day <= 10:
+                on_time += 1
+            else:
+                late_in_month += 1
+        else:
+            after_month += 1
+            days_late.append((r.paid_on - cm).days)
+    n = early + on_time + late_in_month + after_month
+    return {
+        "n": n,
+        "advance": _pct(early, n),
+        "by_10th": _pct(on_time, n),
+        "late_same_month": _pct(late_in_month, n),
+        "after_month_end": _pct(after_month, n),
+        "median_days_after_month_start_when_late": statistics.median(days_late) if days_late else None,
+    }
+
+
+def aligned_window(base: list[Row], target: list[Row],
+                   season_only_months: frozenset[date] = frozenset()) -> tuple[list[Row], list[Row], dict]:
+    """Hedefin takvim aylarını ve son aydaki son gününü baz sezona uygular.
+    season_only_months: hedefe yalnız sezonluk ödemesi taşınmış aylar (ekonomik mod) —
+    bazda da o ayların yalnız sezonluk satırları alınır, simetri korunur."""
+    tgt = [r for r in target if not r.cancelled]
+    if not tgt:
+        return [], [], {}
+    months = sorted({r.sheet_month for r in tgt})
+    last = months[-1]
+    cutoff_day = max(r.paid_on.day for r in tgt if r.sheet_month == last and r.paid_on.month == last.month) \
+        if any(r.sheet_month == last and r.paid_on.month == last.month for r in tgt) else 31
+    moy = {(m.month) for m in months}
+    b = [r for r in base if not r.cancelled and r.sheet_month.month in moy
+         and not (r.sheet_month.month == last.month and r.paid_on.month == last.month and r.paid_on.day > cutoff_day)]
+    # Baz sezonda aynı takvim ayından birden fazla varsa (13 aylık sezon), hedefe 12 ay önceki eşleşir.
+    b = [r for r in b if any(_months_between(t, r.sheet_month) == 12 for t in months)]
+    shifted = {date(m.year - 1, m.month, 1) for m in season_only_months}
+    b = [r for r in b if r.sheet_month not in shifted or r.kind in SEASON_KINDS]
+    return b, tgt, {"months": [m.isoformat()[:7] for m in months], "last_month_cutoff_day": cutoff_day,
+                    "season_only_months": sorted(m.isoformat()[:7] for m in season_only_months)}
+
+
+def economic_split(base: list[Row], target: list[Row], carry_months: int = 1
+                   ) -> tuple[list[Row], list[Row], frozenset[date]]:
+    """Baz dönemin son `carry_months` ayında alınan sezonluk peşin/taksit ödemelerini hedef
+    sezona taşır: Temmuz'da alınan "SEZONLUK PEŞİN" gelecek sezonun gelirdir (nakit önce gelir)."""
+    months = sorted({r.sheet_month for r in base})
+    tail = set(months[-carry_months:]) if carry_months else set()
+    moved = [r for r in base if r.sheet_month in tail and r.kind in SEASON_KINDS]
+    keep = [r for r in base if not (r.sheet_month in tail and r.kind in SEASON_KINDS)]
+    return keep, moved + list(target), frozenset(tail if moved else ())
+
+
+def _months_between(a: date, b: date) -> int:
+    return (a.year - b.year) * 12 + a.month - b.month
+
+
+def compare(base_name: str, base: list[Row], target_name: str, target: list[Row],
+            mode: str = "economic") -> dict[str, Any]:
+    """mode='cash': dönemler defter sayfalarına göre (nakit esası).
+    mode='economic': sezonluk ödemeler ait oldukları sezona yazılır (önerilen kıyas)."""
+    season_only: frozenset[date] = frozenset()
+    if mode == "economic":
+        base, target, season_only = economic_split(base, target)
+    b_all, t_all = summarize(base), summarize(target)
+    b_win, t_win, window = aligned_window(base, target, season_only)
+    bw, tw = summarize(b_win), summarize(t_win)
+
+    def delta(key_path: tuple[str, ...]) -> dict:
+        x, y = bw, tw
+        for k in key_path:
+            x, y = x.get(k, {}) if isinstance(x, dict) else 0, y.get(k, {}) if isinstance(y, dict) else 0
+        x = x if isinstance(x, (int, float)) else 0
+        y = y if isinstance(y, (int, float)) else 0
+        return {"base": x, "target": y, "growth": _growth(y, x)}
+
+    groups = sorted(set(bw["by_group"]) | set(tw["by_group"]))
+    kinds = sorted(set(bw["by_kind"]) | set(tw["by_kind"]))
+
+    # Oyuncu tutma: baz sezonun SON 3 ayında aidat ödeyenlerden kaçı hedef sezonda ödedi?
+    b_valid = [r for r in base if not r.cancelled and r.kind != "EVENT"]
+    t_payers = {r.player_key for r in target if not r.cancelled and r.kind != "EVENT"}
+    b_months = sorted({r.sheet_month for r in b_valid})
+    tail = set(b_months[-3:])
+    recent = {r.player_key for r in b_valid if r.sheet_month in tail}
+    b_payers = {r.player_key for r in b_valid}
+    retained = recent & t_payers
+
+    # Fiyat değişimi: aynı grup, takvim ayı 12 ay arayla
+    b_price = {(p["group"], p["month"]): p["price"] for p in b_all["price_ladder"]}
+    price_changes = []
+    for p in t_all["price_ladder"]:
+        y, m = map(int, p["month"].split("-"))
+        prev = b_price.get((p["group"], f"{y - 1:04d}-{m:02d}"))
+        if prev:
+            price_changes.append({"group": p["group"], "month": p["month"], "base_price": prev,
+                                  "target_price": p["price"], "change": _growth(p["price"], prev)})
+
+    return {
+        "mode": mode,
+        "base": {"name": base_name, **b_all},
+        "target": {"name": target_name, **t_all},
+        "aligned": {
+            "window": window,
+            "total": delta(("total",)),
+            "dues": delta(("dues",)),
+            "textile": delta(("textile",)),
+            "event": delta(("event",)),
+            "payers": delta(("payers",)),
+            "season_plan_amount": delta(("season_plan", "amount")),
+            "season_plan_payers": delta(("season_plan", "payers")),
+            "by_group": {g: {"base": bw["by_group"].get(g, {}).get("amount", 0),
+                             "target": tw["by_group"].get(g, {}).get("amount", 0),
+                             "growth": _growth(tw["by_group"].get(g, {}).get("amount", 0),
+                                               bw["by_group"].get(g, {}).get("amount", 0)),
+                             "payers_base": bw["by_group"].get(g, {}).get("payers", 0),
+                             "payers_target": tw["by_group"].get(g, {}).get("payers", 0)} for g in groups},
+            "by_kind": {k: {"base": bw["by_kind"].get(k, {}).get("amount", 0),
+                            "target": tw["by_kind"].get(k, {}).get("amount", 0)} for k in kinds},
+            "by_month": {"base": bw["by_month"], "target": tw["by_month"]},
+            "timeliness": {"base": bw["timeliness"], "target": tw["timeliness"]},
+        },
+        "retention": {
+            "base_payers": len(b_payers),
+            "base_recent_payers": len(recent),
+            "recent_retained": len(retained),
+            "recent_retention_rate": _pct(len(retained), len(recent)),
+            "target_payers": len(t_payers),
+            "target_new": len(t_payers - b_payers),
+            "recent_not_yet_returned": len(recent - t_payers),
+        },
+        "price_changes": price_changes,
+    }

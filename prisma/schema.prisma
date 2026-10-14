@@ -334,6 +334,7 @@ model Athlete {
   subscriptions Subscription[]
   invoices      Invoice[]
   sourceLead    Lead?               @relation("LeadConversion")
+  ledgerEntries LedgerEntry[]
 
   @@index([status])
   @@index([lastName, firstName])
@@ -1050,4 +1051,76 @@ model NotificationOutbox {
 
   @@index([status, createdAt])
   @@map("notification_outbox")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TAHSİLAT DEFTERİ (Excel geçmişi)
+//  Sistem öncesi aylık Excel tahsilat defterleri buraya içe aktarılır. Oyuncu
+//  doğum tarihi/veli bilgisi defterde olmadığı için sporcu kaydı uydurulmaz;
+//  satır player_key ile tutulur, athlete_id eşleştirme yapıldıkça dolar.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum LedgerKind {
+  MONTHLY // tek aylık aidat
+  PARTIAL // yarım / eksik / kalan aidat
+  MULTI_MONTH // birden çok ay tek ödemede
+  SEASON_UPFRONT // sezonluk peşin
+  SEASON_INSTALLMENT // sezonluk taksit
+  TEXTILE // forma / tekstil
+  EVENT // deplasman, kamp, bilet
+  ARREARS // geçmiş dönem borcu
+  OTHER
+
+  @@map("ledger_kind")
+}
+
+model LedgerImport {
+  id         Int      @id @default(autoincrement())
+  fileName   String   @map("file_name")
+  sha256     String
+  sheets     String[]
+  rowCount   Int      @map("row_count")
+  anomalies  Json // [{sheet, source_row, issue, detail}]
+  importedBy Int?     @map("imported_by")
+  importedAt DateTime @default(now()) @map("imported_at") @db.Timestamptz(3)
+
+  entries LedgerEntry[]
+
+  @@map("ledger_imports")
+}
+
+model LedgerEntry {
+  id             BigInt        @id @default(autoincrement())
+  importId       Int           @map("import_id")
+  sheet          String // "EYLÜL 26"
+  sourceRow      Int           @map("source_row")
+  sheetMonth     DateTime      @map("sheet_month") @db.Date // defter ayı (nakit esası)
+  paidOn         DateTime      @map("paid_on") @db.Date
+  paidOnInferred Boolean       @map("paid_on_inferred")
+  playerName     String        @map("player_name")
+  playerKey      String        @map("player_key")
+  multiPlayer    Boolean       @default(false) @map("multi_player") // "HASAN - KEREM" gibi kardeş satırı
+  athleteId      Int?          @map("athlete_id")
+  group          String // ALTYAPI | SPOR_OKULU | KIZ_TAKIMI | MASA_TENISI | KARMA
+  periodLabel    String        @map("period_label") // ham DÖNEM metni
+  kind           LedgerKind
+  coveredMonths  DateTime[]    @map("covered_months") @db.Date
+  scholarship    Boolean       @default(false)
+  amount         Decimal       @db.Decimal(12, 2)
+  duesAmount     Decimal       @map("dues_amount") @db.Decimal(12, 2)
+  textileAmount  Decimal       @map("textile_amount") @db.Decimal(12, 2)
+  channelRaw     String        @map("channel_raw")
+  channel        String // POS | MAIL_ORDER | GARANTI | FINANSBANK | ISBANKASI | CASH | UNKNOWN
+  method         PaymentMethod
+  cancelled      Boolean       @default(false)
+  note           String?
+
+  import  LedgerImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  athlete Athlete?     @relation(fields: [athleteId], references: [id], onDelete: SetNull)
+
+  // Aynı sayfa yeniden içe aktarılınca eski satırlar silinip yenisi yazılır (defter canlı belge).
+  @@unique([sheet, sourceRow])
+  @@index([sheetMonth])
+  @@index([playerKey])
+  @@map("ledger_entries")
 }
