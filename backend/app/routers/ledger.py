@@ -39,7 +39,7 @@ async def list_seasons(_: CurrentUser = Depends(require(*ANALYSIS_ROLES, Role.CO
 @router.put("/seasons", status_code=200)
 async def upsert_season(data: SeasonIn, _: CurrentUser = Depends(require(Role.ADMIN)),
                         conn: asyncpg.Connection = Depends(get_conn)):
-    """Sezon tanımı (ör. 2025-2026: 2025-08-01 → 2026-07-31). Analiz bu aralıkları kullanır."""
+    """Sezon tanımı (ör. 2025-2026: 2025-07-01 → 2026-06-30). Analiz bu aralıkları kullanır."""
     async with conn.transaction():
         if data.is_active:
             await conn.execute("UPDATE seasons SET is_active=false WHERE name <> $1", data.name)

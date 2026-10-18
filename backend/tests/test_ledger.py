@@ -241,3 +241,29 @@ async def test_plan_prices_api(client, admin):
     assert (await client.put("/seasons/yok/plan-prices", json=body, headers=admin)).status_code == 404
     c = (await client.get("/ledger/compare?base=2025-2026&target=2026-2027", headers=admin)).json()
     assert c["plan_tiers"]["target"][0]["tiers"][1]["players"] == 1  # sentetik defterde 119.000 peşin
+
+
+def test_ledger_diff_detects_added_changed_moved_removed():
+    from app.services.ledger_diff import diff
+
+    old = parse_workbook(build_workbook())
+    wb = openpyxl.load_workbook(io.BytesIO(build_workbook()))
+    ws = wb["AĞUSTOS 26"]
+    ws.insert_rows(2)  # başlığın altına satır ekle → altındaki satırlar kayar (MOVED)
+    ws.cell(2, 1, "05.08.2026"); ws.cell(2, 2, "TEST OYUNCU Z"); ws.cell(2, 3, "ALTYAPI")
+    ws.cell(2, 4, "AĞUSTOS"); ws.cell(2, 5, 9000); ws.cell(2, 6, 9000); ws.cell(2, 8, "POS")
+    t = wb["TEMMUZ 26"]
+    for row in t.iter_rows(min_row=2):
+        if row[1].value == "TEST OYUNCU C":
+            row[3].value = "SEZONLUK 1. TAKSİT"  # aynı satır, aynı oyuncu, farklı dönem → CHANGED
+    buf = io.BytesIO(); wb.save(buf)
+    new = parse_workbook(buf.getvalue())
+    res = diff(old, new)
+    counts = res.counts()
+    assert counts.get("ADDED") == 1 and counts.get("CHANGED") == 1
+    assert counts.get("MOVED", 0) >= 1 and "REMOVED" not in counts
+    assert res.net_delta() == 9000
+    added = [c for c in res.changes if c.kind == "ADDED"][0]
+    assert added.sheet == "AĞUSTOS 26" and added.new_row == 2
+
+    assert diff(old, old).changes == []
