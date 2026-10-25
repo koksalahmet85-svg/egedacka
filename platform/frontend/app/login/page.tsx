@@ -5,7 +5,7 @@ import { Suspense, useState } from "react";
 
 function LoginForm() {
   const router = useRouter();
-  const next = useSearchParams().get("next") ?? "/dashboard";
+  const next = useSearchParams().get("next") ?? "/gelir";
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -24,7 +24,7 @@ function LoginForm() {
       setError((await res.json().catch(() => null))?.detail ?? "Giriş başarısız");
       return;
     }
-    router.replace(next.startsWith("/") ? next : "/dashboard");
+    router.replace(next.startsWith("/") ? next : "/gelir");
   }
 
   return (

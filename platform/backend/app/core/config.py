@@ -35,6 +35,20 @@ class Settings(BaseSettings):
     parasut_username: str = ""
     parasut_password: str = ""
 
+    # Modül anahtarları. Veli portalı ve muhasebe (tahakkuk, tahsilat, fatura, gider)
+    # şimdilik kapalı: gelir Drive'daki ödeme tablosundan takip ediliyor.
+    enable_portal: bool = False
+    enable_accounting: bool = False
+
+    # Drive gelir takibi
+    drive_income_spreadsheet_id: str = ""
+    # Servis hesabı anahtarı: JSON dosya yolu ya da JSON metni. Tabloyu bu hesabın
+    # e-postasıyla "Görüntüleyen" olarak paylaşmak yeterli.
+    google_service_account_json: str = ""
+    drive_sync_minutes: int = 15
+    # BİLANÇO sayfasına özet yazma (Düzenleyen yetkisi gerekir). Varsayılan kapalı.
+    drive_write_bilanco: bool = False
+
     # İş kuralları
     default_expected_tenure_months: float = 14.0
     dashboard_cache_seconds: int = 60

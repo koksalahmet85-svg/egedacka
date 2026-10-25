@@ -9,6 +9,9 @@ x-backend: &backend
   env_file: .env
   environment:
     DATABASE_URL: postgresql://egealfa:${POSTGRES_PASSWORD}@db:5432/egealfa
+  volumes:
+    # Google servis hesabı anahtarı (Drive gelir senkronu). Dosya repoya girmez (.gitignore).
+    - ./secrets/google-sa.json:/run/secrets/google-sa.json:ro
   restart: unless-stopped
 
 services:

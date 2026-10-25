@@ -1166,3 +1166,123 @@ model WebhookEvent {
 
   @@unique([provider, externalId])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. DRIVE GELİR TAKİBİ
+// Gelirin doğruluk kaynağı Google Drive'daki "GENEL ÖDEME TABLOSU"dur.
+// Sistem sayfaları salt-okunur senkronlar, normalize eder ve her senkronda
+// değişiklikleri (yeni işlenen ödemeleri) günlüğe yazar.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum IncomeProgram {
+  SPOR_OKULU
+  ALTYAPI
+  MASA_TENISI
+  DIGER
+}
+
+enum IncomeCellStatus {
+  PAID // tutar girilmiş
+  SEASON_COVERED // SEZONLUK
+  SCHOLARSHIP // BURSLU / %50 BURSLU
+  NOT_STARTED // AYLIK yer tutucu
+  EMPTY
+  NOTE // tanınmayan metin (GELMEDİ vb.)
+}
+
+enum SyncStatus {
+  RUNNING
+  OK
+  FAILED
+}
+
+model DriveSheetSource {
+  id            String        @id @default(uuid()) @db.Uuid
+  spreadsheetId String
+  sheetTitle    String
+  program       IncomeProgram
+  season        String // "2026-27"
+  seasonStart   Int // 2026
+  lastSyncedAt  DateTime?
+  rowCount      Int           @default(0)
+  issues        Json? // son ayrıştırma sorunları
+
+  rows    DriveIncomeRow[]
+  changes DriveIncomeChange[]
+
+  @@unique([spreadsheetId, sheetTitle])
+  @@index([season])
+}
+
+model DriveIncomeRow {
+  id             String           @id @default(uuid()) @db.Uuid
+  sourceId       String           @db.Uuid
+  source         DriveSheetSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  rowKey         String // normalize isim (+ #2 tekrar için)
+  rowNumber      Int // Sheets satır no (bağlantı için)
+  athleteName    String
+  recordNo       String?
+  team           String?
+  coach          String?
+  birthYear      Int?
+  rawPaymentType String
+  paymentType    String // AYLIK | SEZONLUK | BURSLU | KISMI_BURSLU | ADAY | BELIRSIZ
+  textileFee     Decimal?         @db.Decimal(12, 2)
+  typicalFee     Decimal?         @db.Decimal(12, 2)
+  paidTotal      Decimal          @default(0) @db.Decimal(12, 2)
+  note           String?
+  isLeft         Boolean          @default(false)
+
+  cells DriveIncomeCell[]
+
+  @@unique([sourceId, rowKey])
+  @@index([team])
+}
+
+model DriveIncomeCell {
+  rowId  String           @db.Uuid
+  row    DriveIncomeRow   @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  month  DateTime         @db.Date
+  status IncomeCellStatus
+  amount Decimal?         @db.Decimal(12, 2)
+  raw    String
+
+  @@id([rowId, month])
+  @@index([month, status])
+}
+
+// Senkronlar arası fark: "Drive'a ne zaman hangi ödeme işlendi" izini tutar.
+model DriveIncomeChange {
+  id          String           @id @default(uuid()) @db.Uuid
+  sourceId    String           @db.Uuid
+  source      DriveSheetSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  syncRunId   String           @db.Uuid
+  syncRun     DriveSyncRun     @relation(fields: [syncRunId], references: [id], onDelete: Cascade)
+  rowKey      String
+  athleteName String
+  month       DateTime         @db.Date
+  fromStatus  String?
+  toStatus    String
+  fromAmount  Decimal?         @db.Decimal(12, 2)
+  toAmount    Decimal?         @db.Decimal(12, 2)
+  detectedAt  DateTime         @default(now())
+
+  @@index([detectedAt])
+  @@index([sourceId, rowKey])
+}
+
+model DriveSyncRun {
+  id         String     @id @default(uuid()) @db.Uuid
+  startedAt  DateTime   @default(now())
+  finishedAt DateTime?
+  status     SyncStatus @default(RUNNING)
+  trigger    String // "schedule" | "manual"
+  sheets     Int        @default(0)
+  rows       Int        @default(0)
+  changes    Int        @default(0)
+  error      String?
+
+  changeLog DriveIncomeChange[]
+
+  @@index([startedAt])
+}

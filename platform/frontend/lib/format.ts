@@ -27,3 +27,20 @@ export const CHANNEL_LABEL: Record<string, string> = {
   SCHOOL_EVENT: "Okul etkinliği",
   OTHER: "Diğer",
 };
+
+export const PROGRAM_COLOR: Record<string, string> = {
+  SPOR_OKULU: "var(--series-1)",
+  ALTYAPI: "var(--series-2)",
+  MASA_TENISI: "var(--series-3)",
+  DIGER: "var(--series-4)",
+};
+
+const MONTHS_LONG = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim",
+  "Kasım", "Aralık"];
+export const fmtMonthLong = (ym: string) => {
+  const [y, m] = ym.split("-");
+  return `${MONTHS_LONG[Number(m) - 1] ?? m} ${y}`;
+};
+
+export const fmtDateTime = (iso: string) =>
+  new Date(iso).toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });

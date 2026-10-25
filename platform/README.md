@@ -2,6 +2,33 @@
 
 750 sporcu ve 35 personel için uçtan uca yönetim sistemi. Python (FastAPI), PostgreSQL (Prisma), Next.js (TypeScript, Tailwind) ve Docker ile yazıldı.
 
+## 0. Güncel kapsam: gelir Drive'dan takip ediliyor
+
+**Veli portalı ve muhasebe modülü (tahakkuk, tahsilat, fatura, gider) şimdilik kapalı.** Kodları duruyor; `ENABLE_PORTAL=true` / `ENABLE_ACCOUNTING=true` ile geri açılır. Gelirin doğruluk kaynağı Drive'daki **"EGE DAÇKA GENEL ÖDEME TABLOSU"**. Ekip tabloya yazmaya aynen devam eder, sistem okur.
+
+| Ne yapıyor | Nasıl |
+|---|---|
+| Tabloyu okur | Servis hesabıyla **salt-okunur**, her 15 dakikada bir. Tüm sayfalar tek API çağrısında gelir. "Drive'dan şimdi oku" butonu da var. |
+| Sayfaları tanır | Başlık satırındaki "AD SOYAD" ve ay adlarıyla. Sütun sırası farklı olabilir (Spor Okulu ≠ Altyapı). Program sayfa adından, sezon sayfa adından ya da ilk satırdan okunur. BİLANÇO gibi ödeme tablosu olmayan sayfalar atlanır. |
+| Hücreleri anlar | Tutar biçimleri: `45.000,00 TRY`, `₺19.800`, `2.600`, sayı. Durumlar: SEZONLUK, BURSLU / %50 BURSLU, AYLIK (başlamadan önceki yer tutucu), boş. Tanınmayan metin (GELMEDİ…) veri kalitesi uyarısı olur. |
+| BİLANÇO'yu hesaplar | Aylık gelir (program bazında), ödeyen ve ödemeyen kişi sayısı, sezonluk taksit bekleyenler. Drive'daki boş BİLANÇO sayfasının karşılığı. İstenirse sayfaya geri yazılır (`DRIVE_WRITE_BILANCO`, varsayılan kapalı). |
+| Ödemeyenleri listeler | Aylık sporcu başladıktan sonra boş kalan ay = ödenmemiş; geçmiş aylar "gecikmiş", içinde bulunulan ay "bu ay" olarak ayrılır. Sezonluk satırda boş geçmiş ay = taksit bekliyor. BIRAKTI notu olanlar, adaylar (DENEME, ARANACAK) ve burslular sayılmaz. Tahmini tutar sporcunun olağan aidatından, o yoksa programın medyanından hesaplanır. |
+| İşlenen ödemeleri izler | Her okuma bir öncekiyle karşılaştırılır. "Drive'a son işlenenler" listesi hangi ödemenin ne zaman girildiğini, silinen veya değiştirilen tutarları gösterir. Eşleşme isimle yapılır, satır eklemek veya kaydırmak sorun çıkarmaz. |
+
+**Panel:** `/gelir` (giriş sonrası açılış sayfası). **API:** `GET /api/v1/income/overview?season=2026-27`, `POST /api/v1/income/sync`, `POST /api/v1/income/bilanco/{season}/write`.
+
+**Kurulum (bir kez):**
+1. Google Cloud'da bir proje açın, **Google Sheets API**'yi etkinleştirin, bir **servis hesabı** oluşturup JSON anahtarını indirin.
+2. Anahtarı `platform/secrets/google-sa.json` olarak koyun (repoya girmez).
+3. Ödeme tablosunu servis hesabının e-postasıyla (`…@….iam.gserviceaccount.com`) **Görüntüleyen** olarak paylaşın. BİLANÇO'ya otomatik yazma isterseniz **Düzenleyen** yapın ve `DRIVE_WRITE_BILANCO=true` ayarlayın.
+4. `.env` içine `DRIVE_INCOME_SPREADSHEET_ID=<tablo URL'sindeki /d/…/edit arasındaki kimlik>` yazın.
+
+**Bilinen sınırlar (tablonun yapısından kaynaklı):**
+- Ay sütunu ödemenin yapıldığı ayı değil **ait olduğu aidat ayını** gösteriyor. Nakit akışı bu yüzden tam olarak çıkarılamıyor.
+- Tekstil ücretinin hangi ay ödendiği tabloda yok. Tekstil toplamı ayrı gösteriliyor, aylara dağıtılmıyor.
+- Notlardaki taksit planları ("41.000+41.000+43.000 ALINACAK") yorumlanmıyor. Sezonluk satırda boş geçmiş ay "taksit bekliyor" olarak işaretleniyor.
+- Eşleştirme isimle yapıldığı için tabloda bir sporcunun adı değiştirilirse, o sporcu için tek seferlik "yeni satır" değişikliği görünür.
+
 ## 1. Karar: Odoo veya ERPNext çekirdek olmasın
 
 Önerim şu: **çekirdek bu repodaki özel sistem olsun, hazır açık kaynak araçları yalnızca iyi oldukları dar işlerde entegre edin.**
@@ -131,9 +158,9 @@ cd ../frontend && npm ci && API_INTERNAL_URL=http://localhost:8000 npm run dev
 ## 8. Doğrulama durumu
 
 - `prisma validate` geçiyor. Migration'lar PostgreSQL 16'ya uygulandı ve şemayla **drift yok**.
-- **39/39 test geçiyor:** birim testleri (aidat, FIFO, gecikme kademeleri, bordro, ROI, PIR/eFG/TS, SWC, Moore, İstanbul→UTC çizelgeleme) ve gerçek veritabanında uçtan uca testler (RBAC, haftalık program üretimi + çakışma 409, DB EXCLUDE kısıtı, seans→puantaj, tahakkuk idempotentliği, kısmi ödeme + makbuz, gecikme alarmının tekrar etmemesi, lead→üye dönüşümü, dashboard tutarlılığı ve hızı, veli portalı izolasyonu).
+- **81/81 test geçiyor.** Drive gelir: 37 parser testi (tutar biçimleri, hücre/satır sınıflandırma, sayfa düzenleri, ödemeyen kuralları, BİLANÇO toplamları) ve 5 uçtan uca senkron testi (ilk senkron, özet doğruluğu, satır kaymasında yeni ödeme tespiti, eşzamanlı senkron koruması, RBAC). Önceki modüller: birim testleri (aidat, FIFO, gecikme kademeleri, bordro, ROI, PIR/eFG/TS, SWC, Moore, İstanbul→UTC çizelgeleme) ve gerçek veritabanında uçtan uca testler (RBAC, haftalık program üretimi + çakışma 409, DB EXCLUDE kısıtı, seans→puantaj, tahakkuk idempotentliği, kısmi ödeme + makbuz, gecikme alarmının tekrar etmemesi, lead→üye dönüşümü, dashboard tutarlılığı ve hızı, veli portalı izolasyonu).
 - `ruff` temiz, `tsc --noEmit` temiz, `next build` başarılı. Production bağımlılıklarında `npm audit` 0 açık.
-- Dashboard, Playwright ile açık/koyu tema ve mobil genişlikte görsel olarak kontrol edildi.
+- Gelir paneli ve dashboard, Playwright ile açık/koyu tema ve mobil genişlikte görsel olarak kontrol edildi.
 - CI: `.github/workflows/platform-ci.yml` (PostgreSQL servisiyle tam test + frontend build).
 
 ## 9. Açık konular

@@ -6,7 +6,20 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from .core.config import get_settings
 from .core.db import connect, db, disconnect
-from .routers import admin, athletes, auth, crm, dashboard, finance, performance, portal, staff, training, webhooks
+from .routers import (
+    admin,
+    athletes,
+    auth,
+    crm,
+    dashboard,
+    finance,
+    income,
+    performance,
+    portal,
+    staff,
+    training,
+    webhooks,
+)
 
 
 @asynccontextmanager
@@ -33,8 +46,14 @@ app.add_middleware(
 )
 
 API = "/api/v1"
-for r in (auth, athletes, portal, staff, training, performance, finance, crm, dashboard, admin):
+for r in (auth, athletes, staff, training, performance, income, crm, dashboard, admin):
     app.include_router(r.router, prefix=API)
+# Şimdilik kapalı modüller: kod duruyor, ayar açılınca devreye girer.
+if settings.enable_portal:
+    app.include_router(portal.router, prefix=API)
+if settings.enable_accounting:
+    app.include_router(finance.router, prefix=API)
+    app.include_router(admin.accounting_router, prefix=API)
 app.include_router(webhooks.router)  # dış sistemler sabit URL'e çağırır: /webhooks/...
 
 

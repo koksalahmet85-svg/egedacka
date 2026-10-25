@@ -17,6 +17,7 @@
   --series-1: #2a78d6; /* gelir */
   --series-2: #eb6834; /* gider */
   --series-3: #1baf7a; /* net */
+  --series-4: #eda100;
   --seq-1: #86b6ef; /* huni ordinal rampası (250→600) */
   --seq-2: #5598e7;
   --seq-3: #2a78d6;
@@ -41,6 +42,7 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
+    --series-4: #c98500;
     --seq-1: #6da7ec;
     --seq-2: #3987e5;
     --seq-3: #256abf;
@@ -63,6 +65,7 @@
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
+  --series-4: #c98500;
   --seq-1: #6da7ec;
   --seq-2: #3987e5;
   --seq-3: #256abf;

@@ -13,3 +13,14 @@ export async function clientFetch<T>(path: string, signal?: AbortSignal): Promis
   if (!res.ok) throw await toApiError(res);
   return res.json() as Promise<T>;
 }
+
+export async function clientPost<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`/api/backend${path}`, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return res.json() as Promise<T>;
+}

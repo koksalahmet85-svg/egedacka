@@ -12,6 +12,10 @@ import httpx
 import pytest
 import pytest_asyncio
 
+# Bu testler muhasebe ve portal modüllerini de kapsar (varsayılan kapalı).
+os.environ.setdefault("ENABLE_ACCOUNTING", "true")
+os.environ.setdefault("ENABLE_PORTAL", "true")
+
 pytestmark = [
     pytest.mark.skipif(not os.getenv("RUN_INTEGRATION"), reason="RUN_INTEGRATION=1 ve seed'li DB gerekir"),
     pytest.mark.asyncio(loop_scope="module"),

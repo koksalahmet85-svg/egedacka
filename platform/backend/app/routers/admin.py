@@ -9,19 +9,21 @@ from ..core.deps import Management
 from ..services import ads_sync, billing, invoicing, notifications
 
 router = APIRouter(prefix="/admin", tags=["Yönetim"])
+# Muhasebe modülüne bağlı job'lar: yalnızca ENABLE_ACCOUNTING açıkken bağlanır.
+accounting_router = APIRouter(prefix="/admin", tags=["Yönetim"])
 
 
-@router.post("/jobs/overdue")
+@accounting_router.post("/jobs/overdue")
 async def run_overdue(_: Management, today: date | None = None):
     return await billing.process_overdue(today)
 
 
-@router.post("/jobs/notifications")
+@accounting_router.post("/jobs/notifications")
 async def run_notifications(_: Management):
     return await notifications.dispatch_queued()
 
 
-@router.post("/jobs/invoices/retry")
+@accounting_router.post("/jobs/invoices/retry")
 async def run_invoice_retry(_: Management):
     return {"retried": await invoicing.retry_failed_invoices()}
 
