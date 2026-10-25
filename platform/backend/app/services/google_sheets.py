@@ -38,9 +38,12 @@ def _service_account() -> dict:
     if not raw:
         raise SheetsError("GOOGLE_SERVICE_ACCOUNT_JSON tanımlı değil")
     try:
-        return json.loads(raw if raw.startswith("{") else Path(raw).read_text())
+        sa = json.loads(raw if raw.startswith("{") else Path(raw).read_text())
     except (OSError, json.JSONDecodeError) as e:
         raise SheetsError(f"Servis hesabı anahtarı okunamadı: {e}") from e
+    if not isinstance(sa, dict) or not sa.get("client_email") or not sa.get("private_key"):
+        raise SheetsError("Servis hesabı anahtarı geçersiz (client_email / private_key yok)")
+    return sa
 
 
 class GoogleSheetsClient:

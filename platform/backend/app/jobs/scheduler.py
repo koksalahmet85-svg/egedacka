@@ -36,8 +36,8 @@ async def drive_sync() -> None:
     try:
         r = await drive_income.sync(trigger="schedule")
         log.info("drive senkronu: %s", r)
-    except Exception:
-        log.exception("drive senkronu başarısız")  # hata DriveSyncRun'a yazıldı; bir sonraki turda yeniden dener
+    except Exception:  # ayrıntı servis içinde loglandı ve DriveSyncRun'a yazıldı; sonraki turda yeniden dener
+        pass
 
 
 def build_scheduler() -> AsyncIOScheduler:

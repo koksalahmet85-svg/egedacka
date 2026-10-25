@@ -73,7 +73,10 @@ async def sync(
             },
         )
     except Exception as e:
-        log.exception("Drive senkronu başarısız")
+        if isinstance(e, SheetsError):  # yapılandırma/erişim hatası: traceback gereksiz
+            log.warning("Drive senkronu başarısız: %s", e)
+        else:
+            log.exception("Drive senkronu başarısız")
         await db.drivesyncrun.update(
             where={"id": run.id}, data={"status": "FAILED", "finishedAt": utcnow(), "error": str(e)[:500]}
         )
