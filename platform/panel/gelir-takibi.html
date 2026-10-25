@@ -1,0 +1,882 @@
+<title>Ege Daçka Gelir Takibi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Düzen: koyu yeşil kulüp bandı → özet şeridi → grafik + BİLANÇO → ödeme takibi → takım kırılımı → veri kalitesi */
+:root {
+  --bg: #f2f4f1;
+  --surface: #ffffff;
+  --ink: #16231b;
+  --ink-2: #4a5a50;
+  --muted: #7a877f;
+  --line: #dde3dd;
+  --band: #1a3a2a;
+  --band-ink: #ffffff;
+  --band-ink-2: rgba(255,255,255,.66);
+  --accent: #2d6a45;
+  --good: #0b6b1f;
+  --warn: #9a6200;
+  --crit: #c0392b;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1411; --surface: #161f1a; --ink: #eef2ee; --ink-2: #b6c2ba; --muted: #849189; --line: #28332d;
+    --band: #122a1d; --band-ink: #f2f6f2; --band-ink-2: rgba(242,246,242,.62);
+    --accent: #5fb37c; --good: #3cc35a; --warn: #f0b23c; --crit: #ec6a5c;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1411; --surface: #161f1a; --ink: #eef2ee; --ink-2: #b6c2ba; --muted: #849189; --line: #28332d;
+  --band: #122a1d; --band-ink: #f2f6f2; --band-ink-2: rgba(242,246,242,.62);
+  --accent: #5fb37c; --good: #3cc35a; --warn: #f0b23c; --crit: #ec6a5c;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.band { background: var(--band); color: var(--band-ink); }
+.band .wrap { padding-block: 22px 26px; display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; justify-content: space-between; }
+.brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.brand small { font-family: var(--display); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--band-ink-2); }
+h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: clamp(30px, 5vw, 44px); line-height: 1; letter-spacing: .01em; text-wrap: balance; }
+.src { font-size: 13px; color: var(--band-ink-2); }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.controls label { font-size: 13px; color: var(--band-ink-2); display: flex; gap: 8px; align-items: center; }
+select, button { font: inherit; }
+.band select { background: rgba(255,255,255,.1); color: var(--band-ink); border: 1px solid rgba(255,255,255,.25); border-radius: 8px; padding: 7px 10px; }
+.band select option { color: #16231b; }
+.btn { background: var(--band-ink); color: var(--band); border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer; }
+.btn:disabled { opacity: .6; cursor: progress; }
+.btn-plain { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--s1); outline-offset: 2px; }
+main.wrap { padding-block: 22px 40px; display: grid; gap: 22px; }
+.status { font-size: 14px; color: var(--ink-2); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.notice { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 10px; padding: 16px 18px; display: grid; gap: 10px; }
+.notice.crit { border-left-color: var(--crit); }
+.notice h2 { margin: 0; font-size: 17px; }
+.notice p { margin: 0; color: var(--ink-2); max-width: 70ch; }
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.kpi { padding: 14px 16px; border-right: 1px solid var(--line); min-width: 0; display: grid; gap: 4px; align-content: start; }
+.kpi:last-child { border-right: 0; }
+.kpi .lab { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: 12.5px; color: var(--muted); }
+.kpi .val { font-family: var(--display); font-weight: 700; font-size: 28px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.kpi .hint { font-size: 12.5px; color: var(--ink-2); }
+.tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.t-good { color: var(--good); } .t-warn { color: var(--warn); } .t-crit { color: var(--crit); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.panel h2 { margin: 0 0 2px; font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .01em; }
+.panel .sub { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.chart { position: relative; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-family: var(--body); font-size: 12px; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.12); white-space: nowrap; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { text-align: left; font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 12px; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.cur td { font-weight: 700; }
+tr.fut td { color: var(--muted); }
+tfoot td { font-weight: 700; border-bottom: 0; border-top: 2px solid var(--ink-2); }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; align-items: center; }
+.tab { background: transparent; border: 1px solid var(--line); color: var(--ink-2); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13.5px; }
+.tab[aria-selected="true"] { background: var(--band); color: var(--band-ink); border-color: var(--band); font-weight: 600; }
+.panel select { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; font-size: 13.5px; }
+.note { font-size: 12.5px; color: var(--ink-2); max-width: 32ch; }
+.name { font-weight: 600; }
+a { color: var(--accent); }
+details summary { cursor: pointer; font-family: var(--display); font-weight: 700; font-size: 20px; }
+.foot { font-size: 12.5px; color: var(--muted); max-width: 90ch; margin: 0; }
+.skeleton { height: 14px; border-radius: 6px; background: var(--line); }
+.sum { display: grid; grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.sum .kpi:first-child { background: var(--band); color: var(--band-ink); }
+.sum .kpi:first-child .lab, .sum .kpi:first-child .hint { color: var(--band-ink-2); }
+.sum .kpi .val { font-size: 32px; }
+.sec-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 6px 0 -8px; }
+.sec-h h2 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 26px; }
+.sec-h span { color: var(--muted); font-size: 13px; }
+.camps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.camp { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.camp h3 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 20px; }
+.camp .row { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--ink-2); }
+.camp .row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.mini { font-size: 12px; color: var(--muted); }
+.ok { color: var(--good); } .diff { color: var(--crit); }
+@media (max-width: 1000px) { .sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sum .kpi { border-bottom: 1px solid var(--line); } }
+@media (max-width: 1000px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kpi:nth-child(3n) { border-right: 0; } .kpi:nth-child(-n+3) { border-bottom: 1px solid var(--line); } .grid2 { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi { border-right: 1px solid var(--line) !important; border-bottom: 1px solid var(--line); } .kpi:nth-child(2n) { border-right: 0 !important; } .kpi .val { font-size: 24px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="band">
+  <div class="wrap">
+    <div class="brand">
+      <small>Ege Daçka · Ege Alfa</small>
+      <h1>Gelir Takibi</h1>
+      <span class="src" id="src">Kaynak: Drive · EGE DAÇKA GENEL ÖDEME TABLOSU</span>
+    </div>
+    <div class="controls">
+      <label for="season">Sezon <select id="season" disabled><option>—</option></select></label>
+      <button class="btn" id="refresh" type="button">Drive'dan yeniden oku</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="app">
+  <div class="status" id="status">Tablo okunuyor…</div>
+  <section class="kpis" aria-label="Özet" id="kpis">
+    <div class="kpi"><div class="skeleton"></div></div><div class="kpi"><div class="skeleton"></div></div><div class="kpi"><div class="skeleton"></div></div>
+    <div class="kpi"><div class="skeleton"></div></div><div class="kpi"><div class="skeleton"></div></div><div class="kpi"><div class="skeleton"></div></div>
+  </section>
+  <div id="body"></div>
+</main>
+
+<script>
+const SHEET_ID = "1IAFrxrPgDu9BsSq59LbOtA0fScGO-p5lyTIXcpUwsZs";
+const SERVER = "Google Sheets";
+const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+const DRIVE = "Google Drive";
+const fileUrl = (id) => `https://docs.google.com/spreadsheets/d/${id}/edit`;
+// Bilinen dosyalar; Drive araması yenilerini (adında KAMP / BİREYSEL ANTRENMANLAR geçen) otomatik ekler.
+const LESSON_FILES = [{ id: "1K6-2cPQu6_2m2I-QoWL9myixX4M-9lsxWVoXKRYXHCA", title: "2025-2026 BİREYSEL ANTRENMANLAR ÖDEME TABLOSU" }];
+const CAMP_FILES = [
+  { id: "1rAJEVmed6qotyvnYvDKmkTHPljcdoxZoveV_5fRyv_4", title: "BOSNA KAMP 26", createdTime: "2026-10-20" },
+  { id: "1GDMqo4Oh77UJI9nrqrHoi-klmuNXft3Y2iSOhBMk8oc", title: "KUŞADASI KAMP 26", createdTime: "2026-10-14" },
+  { id: "1YKjEhgUEdTvtrFtmT3ofeDA685kLOiII2taQb6b4S6o", title: "İSTANBUL KAMP", createdTime: "2026-08-10" },
+];
+
+// ── Ayrıştırma (backend/app/domain/drive_income.py ile aynı kurallar) ──────────
+const MONTHS = ["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"];
+const MONTH_IDX = Object.fromEntries(MONTHS.map((m, i) => [m, i + 1]));
+const MONTH_SHORT = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
+const MONTH_LONG = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+const PROGRAM_LABEL = { SPOR_OKULU: "Spor Okulu", ALTYAPI: "Altyapı", MASA_TENISI: "Masa Tenisi", BIREYSEL: "Bireysel ders", DIGER: "Diğer" };
+const PROGRAM_ORDER = ["SPOR_OKULU", "ALTYAPI", "MASA_TENISI", "DIGER"];
+const PROGRAM_COLOR = { SPOR_OKULU: "var(--s1)", ALTYAPI: "var(--s2)", MASA_TENISI: "var(--s3)", BIREYSEL: "var(--s4)", DIGER: "var(--s5)" };
+const LEFT_MARKERS = ["BIRAKTI", "AYRILDI", "GELMEYECEK", "KAYIT SİLİNDİ"];
+const PROSPECT_MARKERS = ["DENEME", "ARANACAK", "İLETİŞİM YOK", "ILETISIM YOK", "BİLGİ ALDI"];
+const HEADERS = {
+  name: ["ADSOYAD"], payment_type: ["ÖDEMETÜRÜ", "ÖDEMETERCİH"], no: ["NO"],
+  team: ["TAKIMİSMİ", "TAKIM", "GRUP"], coach: ["KOÇ"], birth_year: ["DOĞUMYILI"],
+  textile_fee: ["ÜCRET"], note: ["AÇIKLAMA", "NOT"],
+};
+
+const norm = (v) => (v == null ? "" : String(v)).toLocaleUpperCase("tr").replace(/\s+/g, " ").trim();
+const key = (v) => norm(v).replace(/[^A-ZÇĞİÖŞÜ]/g, "");
+const ym = (y, m) => `${y}-${String(m).padStart(2, "0")}`;
+
+// Türkçe (45.000,00) ve İngilizce (39,000.00) biçimleri, ondalık nokta (362.6) ve para birimi işaretleri.
+function parseAmount(v) {
+  if (v == null || typeof v === "boolean") return null;
+  if (typeof v === "number") return v > 0 ? Math.round(v * 100) / 100 : null;
+  const s = norm(v).replace(/TRY|TL|EUR|GBP|USD|₺|£|€|\$|\s/g, "");
+  if (!s || !/^[\d.,]+$/.test(s) || !/\d/.test(s)) return null;
+  const d = s.lastIndexOf("."), c = s.lastIndexOf(",");
+  let n;
+  if (d >= 0 && c >= 0) { const dec = d > c ? "." : ","; n = Number(s.split(dec === "." ? "," : ".").join("").replace(dec, ".")); }
+  else if (c >= 0) n = /^\d{1,3}(,\d{3})+$/.test(s) ? Number(s.replace(/,/g, "")) : Number(s.replace(",", "."));
+  else if (d >= 0) n = /^\d{1,3}(\.\d{3})+$/.test(s) ? Number(s.replace(/\./g, "")) : Number(s);
+  else n = Number(s);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+}
+function currencyOf(v) {
+  const s = norm(v);
+  if (/£|GBP/.test(s)) return "GBP";
+  if (/€|EUR/.test(s)) return "EUR";
+  if (/\$|USD/.test(s)) return "USD";
+  return "TRY";
+}
+
+function classify(v) {
+  const a = parseAmount(v);
+  if (a != null) return ["PAID", a];
+  const s = norm(v);
+  if (["", ".", "-", "—", "0", "₺0", "₺0,00"].includes(s)) return ["EMPTY", null];
+  if (s.includes("BURSLU")) return ["SCHOLARSHIP", null];
+  if (s.startsWith("SEZONLUK")) return ["SEASON", null];
+  if (s === "AYLIK" || s === "AYLIKI") return ["PLACEHOLDER", null];
+  return ["NOTE", null];
+}
+
+function detectSeason(...texts) {
+  for (const t of texts) {
+    const m = /(?<!\d)(\d{2}|\d{4})\s*-\s*(\d{2}|\d{4})(?!\d)/.exec(t || "");
+    if (!m) continue;
+    let a = +m[1], b = +m[2];
+    if (a < 100) a += 2000; if (b < 100) b += 2000;
+    if (b === a + 1 && a >= 2015 && a <= 2100) return a;
+  }
+  return null;
+}
+
+function detectProgram(...texts) {
+  for (const t of texts) {
+    const k = key(t);
+    if (k.includes("MASATEN")) return "MASA_TENISI";
+    if (k.includes("ALTYAPI")) return "ALTYAPI";
+    if (k.includes("SPOROKULU")) return "SPOR_OKULU";
+  }
+  return "DIGER";
+}
+
+function detectLayout(values, seasonStart) {
+  for (let r = 0; r < Math.min(values.length, 12); r++) {
+    const keys = (values[r] || []).map(key);
+    if (!keys.includes("ADSOYAD")) continue;
+    const neighbours = [keys, ...[r + 1, r - 1].filter((j) => j >= 0 && j < values.length).map((j) => (values[j] || []).map(key))];
+    const cols = {};
+    for (const [f, aliases] of Object.entries(HEADERS)) {
+      for (const rk of neighbours) {
+        const hit = rk.findIndex((k) => aliases.includes(k));
+        if (hit >= 0) { cols[f] = hit; break; }
+      }
+    }
+    const months = [];
+    let year = seasonStart, prev = null;
+    keys.forEach((k, i) => {
+      if (i <= cols.name) return;
+      const m = MONTH_IDX[k];
+      if (!m) return;
+      if (prev != null && m <= prev) year += 1;
+      if (!months.length && m < 7) year = seasonStart + 1;
+      months.push([i, ym(year, m)]);
+      prev = m;
+    });
+    if (!months.length) return null;
+    if (cols.note == null) cols.note = months[months.length - 1][0] + 1;
+    return { headerRow: r, cols, months };
+  }
+  return null;
+}
+
+function paymentType(raw, cells) {
+  const s = norm(raw);
+  if (s.includes("BURSLU")) return s.includes("%") ? "KISMI_BURSLU" : "BURSLU";
+  if (s.startsWith("SEZONLUK")) return "SEZONLUK";
+  if (s.startsWith("AYLIK")) return "AYLIK";
+  if (PROSPECT_MARKERS.some((m) => s.includes(m))) return "ADAY";
+  const c = (st) => cells.filter((x) => x.status === st).length;
+  if (c("SEASON") >= 3) return "SEZONLUK";
+  if (c("SCHOLARSHIP") >= 3) return "BURSLU";
+  if (c("PLACEHOLDER") || c("PAID")) return "AYLIK";
+  return "BELIRSIZ";
+}
+
+function median(a) { const s = [...a].sort((x, y) => x - y); const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; }
+
+function parseSheet(title, values, gid) {
+  const head = values.slice(0, 3).flat().filter(Boolean).join(" ");
+  const season = detectSeason(title) ?? detectSeason(head);
+  if (season == null) return null;
+  const L = detectLayout(values, season);
+  if (!L) return null;
+  const sheet = { title, gid, program: detectProgram(title, head), seasonStart: season,
+    season: `${season}-${String(season + 1).slice(2)}`, months: L.months.map((m) => m[1]), rows: [], issues: [] };
+  const get = (row, i) => (i != null && i < row.length ? row[i] : null);
+  const seen = {};
+  for (let r = L.headerRow + 1; r < values.length; r++) {
+    const row = values[r] || [];
+    const name = String(get(row, L.cols.name) ?? "").replace(/\s+/g, " ").trim();
+    if (!name || key(name) === "ADSOYAD") continue;
+    const cells = L.months.map(([col, month]) => {
+      const raw = get(row, col);
+      const [status, amount] = classify(raw);
+      if (status === "NOTE") sheet.issues.push({ row: r + 1, name, kind: "Tanınmayan hücre", detail: `${monthLabel(month)}: "${raw}"` });
+      return { month, status, amount };
+    });
+    const rawType = String(get(row, L.cols.payment_type) ?? "").trim();
+    const note = String(get(row, L.cols.note) ?? "").trim() || null;
+    const type = paymentType(rawType, cells);
+    const flags = norm(`${rawType} ${note || ""}`);
+    const isLeft = LEFT_MARKERS.some((m) => flags.includes(m));
+    if (type === "BELIRSIZ" && !isLeft) sheet.issues.push({ row: r + 1, name, kind: "Ödeme türü eksik", detail: "Ödeme türü yok ve hücrelerden çıkarılamadı" });
+    const base = key(name); seen[base] = (seen[base] || 0) + 1;
+    if (seen[base] === 2) sheet.issues.push({ row: r + 1, name, kind: "Tekrarlayan isim", detail: "Aynı isim sayfada birden fazla" });
+    const amounts = cells.filter((c) => c.amount).map((c) => c.amount);
+    sheet.rows.push({
+      rowNumber: r + 1, name, team: String(get(row, L.cols.team) ?? "").trim() || null,
+      coach: String(get(row, L.cols.coach) ?? "").trim() || null, type, rawType, note, isLeft, cells,
+      textile: parseAmount(get(row, L.cols.textile_fee)),
+      paidTotal: amounts.reduce((a, b) => a + b, 0), typicalFee: amounts.length ? median(amounts) : null,
+    });
+  }
+  return sheet;
+}
+
+function expected(row, month, curMonth) {
+  if (row.isLeft || month > curMonth) return null;
+  const cell = row.cells.find((c) => c.month === month);
+  if (!cell || cell.status !== "EMPTY") return null;
+  if (row.type === "AYLIK") {
+    const start = row.cells.find((c) => c.status !== "PLACEHOLDER");
+    if (!start || month < start.month) return null;
+    return "DUE";
+  }
+  if (row.type === "SEZONLUK") return "PENDING";
+  return null;
+}
+
+function overview(sheets, curMonth) {
+  const programs = PROGRAM_ORDER.filter((p) => sheets.some((s) => s.program === p));
+  const months = [...new Set(sheets.flatMap((s) => s.months))].sort();
+  const all = sheets.flatMap((s) => s.rows.map((r) => ({ s, r })));
+  const totals = months.map((m) => {
+    const by = Object.fromEntries(programs.map((p) => [p, 0]));
+    let payers = 0, nonPayers = 0, pending = 0;
+    for (const { s, r } of all) {
+      const c = r.cells.find((x) => x.month === m);
+      if (c && c.amount) { by[s.program] += c.amount; payers++; }
+      const e = expected(r, m, curMonth);
+      if (e === "DUE") nonPayers++; else if (e === "PENDING") pending++;
+    }
+    return { month: m, by, total: Object.values(by).reduce((a, b) => a + b, 0), payers, nonPayers, pending, future: m > curMonth };
+  });
+  const fees = {};
+  for (const { s, r } of all) if (r.type === "AYLIK" && r.typicalFee) (fees[s.program] ||= []).push(r.typicalFee);
+  const medFee = Object.fromEntries(Object.entries(fees).map(([p, v]) => [p, median(v)]));
+  const unpaid = [];
+  for (const { s, r } of all) {
+    const due = [], pend = [];
+    for (const m of s.months) { const e = expected(r, m, curMonth); if (e === "DUE") due.push(m); else if (e === "PENDING") pend.push(m); }
+    if (!due.length && !pend.length) continue;
+    const fee = r.typicalFee || medFee[s.program] || null;
+    const lastPaid = r.cells.filter((c) => c.amount).map((c) => c.month).sort().pop() || null;
+    unpaid.push({ s, r, kind: due.length ? "DUE" : "PENDING", months: due.length ? due : pend,
+      overdue: due.filter((m) => m < curMonth).length, fee, est: fee && due.length ? fee * due.length : null, lastPaid });
+  }
+  unpaid.sort((a, b) => (a.kind !== "DUE") - (b.kind !== "DUE") || b.overdue - a.overdue || (b.est || 0) - (a.est || 0) || a.r.name.localeCompare(b.r.name, "tr"));
+  const teamsMap = new Map();
+  for (const { s, r } of all) {
+    const coach = s.program === "ALTYAPI" ? r.coach : null;
+    const k = `${s.program}|${r.team}|${coach}`;
+    if (!teamsMap.has(k)) teamsMap.set(k, { program: s.program, team: r.team || PROGRAM_LABEL[s.program], coach, athletes: 0, season: 0, month: 0, due: 0 });
+    const t = teamsMap.get(k);
+    if (!r.isLeft && !["ADAY", "BELIRSIZ"].includes(r.type)) t.athletes++;
+    t.season += r.paidTotal;
+    t.month += r.cells.find((c) => c.month === curMonth && c.amount)?.amount || 0;
+    if (expected(r, curMonth, curMonth) === "DUE") t.due++;
+  }
+  const teams = [...teamsMap.values()].sort((a, b) => PROGRAM_ORDER.indexOf(a.program) - PROGRAM_ORDER.indexOf(b.program) || b.season - a.season);
+  const active = all.filter(({ r }) => !r.isLeft && !["ADAY", "BELIRSIZ"].includes(r.type));
+  const count = (t) => active.filter(({ r }) => r.type === t).length;
+  const cur = totals.find((t) => t.month === curMonth);
+  const prevKey = prevMonth(curMonth);
+  const prv = totals.find((t) => t.month === prevKey);
+  const dueRows = unpaid.filter((u) => u.kind === "DUE");
+  return {
+    programs, totals, unpaid, teams,
+    kpi: {
+      seasonTotal: totals.reduce((a, t) => a + t.total, 0),
+      month: cur?.total || 0, prev: prv?.total || 0, payers: cur?.payers || 0, nonPayers: cur?.nonPayers || 0,
+      overdue: dueRows.filter((u) => u.overdue > 0).length,
+      open: dueRows.reduce((a, u) => a + (u.est || 0), 0),
+      pending: unpaid.filter((u) => u.kind === "PENDING").length,
+      textile: all.reduce((a, { r }) => a + (r.textile || 0), 0),
+      active: active.length, monthly: count("AYLIK"), seasonal: count("SEZONLUK"),
+      scholar: count("BURSLU") + count("KISMI_BURSLU"), left: all.filter(({ r }) => r.isLeft).length,
+    },
+    issues: sheets.flatMap((s) => s.issues.map((i) => ({ ...i, sheet: s.title, gid: s.gid }))),
+  };
+}
+
+// ── Bireysel dersler: aylık sekmeli ödeme tablosu ─────────────────────────
+function findHeader(values, test, scan = 6) {
+  for (let r = 0; r < Math.min(values.length, scan); r++) { const keys = (values[r] || []).map(key); if (keys.some(test)) return { r, keys, raw: values[r] }; }
+  return null;
+}
+function parseLessons(file, tabs) {
+  const season = detectSeason(file.title);
+  if (season == null) return null;
+  const out = { file, season: `${season}-${String(season + 1).slice(2)}`, seasonStart: season, months: {}, rows: [], extra: [], genel: {}, issues: [], shareLabel: "Koordinatör payı" };
+  for (const t of tabs) {
+    const tk = key(t.title);
+    const v = t.values || [];
+    if (tk === "GENEL") {
+      for (const row of v) { const m = MONTH_IDX[key(row[0])]; const a = parseAmount(row[1]); if (m && a != null) out.genel[ym(m >= 7 ? season : season + 1, m)] = a; }
+      continue;
+    }
+    if (tk.startsWith("EKÖDEME")) {
+      const h = findHeader(v, (k) => k.includes("ÖDEMETUTARI"));
+      if (!h) continue;
+      const iA = h.keys.findIndex((k) => k.includes("ÖDEMETUTARI")), iN = h.keys.findIndex((k) => k.includes("ADSOYAD")), iW = h.keys.findIndex((k) => k.includes("SEBEB"));
+      const iD = h.keys.findIndex((k) => k.includes("TARİH"));
+      for (const row of v.slice(h.r + 1)) { const a = parseAmount(row[iA]); if (a) out.extra.push({ who: row[iN] || "", amount: a, why: row[iW] || "", date: row[iD] || "" }); }
+      continue;
+    }
+    const m = MONTH_IDX[tk];
+    if (!m) continue;
+    const month = ym(m >= 7 ? season : season + 1, m);
+    const h = findHeader(v, (k) => k.includes("ADSOYAD"));
+    if (!h) continue;
+    const idx = (f) => h.keys.findIndex(f);
+    const c = {
+      name: idx((k) => k.includes("ADSOYAD")), coach: idx((k) => k === "ANTRENÖR"), pkg: idx((k) => k.includes("PAKET")),
+      amount: idx((k) => k.includes("ÖDEMETUTARI")), toCoach: idx((k) => k.includes("ANTRENÖREÖDENEN")),
+      club: idx((k) => k.includes("KULÜBEKALAN")), share: idx((k) => k.endsWith("KALAN") && !k.includes("KULÜBE")), date: idx((k) => k.includes("ÖDEMEGÜNÜ") || k.includes("TARİH")),
+    };
+    if (c.share >= 0) out.shareLabel = String(h.raw[c.share]).trim().replace(/^\w/, (x) => x);
+    const maxCol = Math.max(...Object.values(c));
+    let sum = 0;
+    for (let r = h.r + 1; r < v.length; r++) {
+      const row = v[r] || [];
+      const name = String(row[c.name] ?? "").trim();
+      if (!name) continue;
+      const amount = parseAmount(row[c.amount]);
+      if (amount == null) { out.issues.push({ sheet: `${file.title} / ${t.title}`, gid: t.gid, fileId: file.id, row: r + 1, name, kind: "Tutar yok", detail: `ÖDEME TUTARI: "${row[c.amount] ?? ""}"` }); continue; }
+      const lessons = parseInt(String(row[c.pkg] ?? "").replace(/\D+/g, " "), 10);
+      sum += amount;
+      out.rows.push({ month, tab: t.title, gid: t.gid, rowNumber: r + 1, name, coach: String(row[c.coach] ?? "").trim() || "—",
+        lessons: Number.isFinite(lessons) ? lessons : null, amount, toCoach: parseAmount(row[c.toCoach]) || 0,
+        club: parseAmount(row[c.club]) || 0, share: c.share >= 0 ? parseAmount(row[c.share]) || 0 : 0,
+        date: String(row[c.date] ?? "").trim(), note: row.slice(maxCol + 1).filter((x) => String(x).trim()).join(" · ") });
+    }
+    out.months[month] = (out.months[month] || 0) + sum;
+  }
+  for (const [m, g] of Object.entries(out.genel)) {
+    const mine = out.months[m] || 0;
+    if (Math.abs(mine - g) > 1) out.issues.push({ sheet: `${file.title} / GENEL`, fileId: file.id, row: null, name: monthLabel(m), kind: "GENEL toplamıyla fark", detail: `Satırların toplamı ${tl(mine)}, GENEL sekmesi ${tl(g)}` });
+  }
+  return out;
+}
+
+// ── Kamplar: katılımcı başına alınacak ücret, ödeme durumu ve taksitler ───
+function seasonFromDate(iso) { const d = new Date(iso); if (isNaN(d)) return null; const y = d.getFullYear(); return d.getMonth() + 1 >= 7 ? y : y - 1; }
+function parseCamp(file, tabs) {
+  const start = seasonFromDate(file.createdTime) ?? (detectSeason(file.title) || null);
+  const camp = { file, title: file.title, season: start ? `${start}-${String(start + 1).slice(2)}` : null, people: [], issues: [] };
+  for (const t of tabs) {
+    const v = t.values || [];
+    const h = findHeader(v, (k) => k.includes("ADSOYAD"));
+    if (!h || !h.keys.some((k) => k.includes("ÜCRET"))) continue;
+    const idx = (f) => h.keys.findIndex(f);
+    const c = {
+      name: idx((k) => k.includes("ADSOYAD")), team: idx((k) => k === "TAKIM"), coach: idx((k) => k.startsWith("ANTRENÖR")),
+      fee: idx((k) => k.includes("ÜCRET")), status: idx((k) => k === "ÖDEMEDURUMU"), method: idx((k) => k === "ÖDEMEŞEKLİ" || k === "ÖDEME"),
+    };
+    const inst = h.keys.map((k, i) => (k.includes("TAKSİT") ? i : -1)).filter((i) => i >= 0);
+    const skip = new Set([...Object.values(c), ...inst, ...h.keys.map((k, i) => (["NO", "SIRANO", "TC", "DOĞUMTARİHİ"].includes(k) ? i : -1))]);
+    for (let r = h.r + 1; r < v.length; r++) {
+      const row = v[r] || [];
+      const name = String(row[c.name] ?? "").trim();
+      if (!name) continue;
+      const feeRaw = row[c.fee];
+      const fee = parseAmount(feeRaw);
+      const status = String(row[c.status] ?? "").trim();
+      const instPaid = inst.reduce((a, i) => a + (parseAmount(row[i]) || 0), 0);
+      const paid = instPaid > 0 ? instPaid : parseAmount(status) || 0;
+      const scholar = norm(status).includes("BURSLU") || (fee == null && /\d/.test(String(feeRaw ?? "")));
+      const currency = currencyOf([feeRaw, status, ...inst.map((i) => row[i])].join(" "));
+      const remaining = scholar || fee == null ? 0 : Math.max(0, fee - paid);
+      const note = row.filter((x, i) => !skip.has(i) && i !== c.name && String(x).trim() && String(x).trim() !== "-").join(" · ");
+      if (fee == null && !scholar) camp.issues.push({ sheet: `${file.title} / ${t.title}`, gid: t.gid, fileId: file.id, row: r + 1, name, kind: "Kamp ücreti yok", detail: "ALINACAK ÜCRET boş" });
+      camp.people.push({ name, team: String(row[c.team] ?? "").trim(), coach: String(row[c.coach] ?? "").trim(),
+        fee: scholar ? 0 : fee, paid, remaining, scholar, currency, method: String(row[c.method] ?? "").trim(),
+        refund: /İADE/.test(norm(note)), note, gid: t.gid, rowNumber: r + 1,
+        state: scholar ? "BURSLU" : fee == null ? "BELİRSİZ" : remaining <= 0.5 ? "ÖDENDİ" : paid > 0 ? "KISMİ" : "ÖDENMEDİ" });
+    }
+  }
+  if (!camp.people.length) return null;
+  // Ücreti boş satırlar kampın ana para birimini alır (yoksa £ kampında boş bir ₺ satırı oluşur).
+  const seen = {};
+  for (const p of camp.people) if (p.fee) seen[p.currency] = (seen[p.currency] || 0) + 1;
+  const main = Object.entries(seen).sort((a, b) => b[1] - a[1])[0]?.[0] || "TRY";
+  for (const p of camp.people) if (!p.fee && !p.paid) p.currency = main;
+  camp.currency = main;
+  const cur = {};
+  for (const p of camp.people) {
+    if (p.scholar) continue;
+    const x = (cur[p.currency] ||= { expected: 0, paid: 0, remaining: 0 });
+    x.expected += p.fee || 0; x.paid += p.paid; x.remaining += p.remaining;
+  }
+  camp.byCurrency = cur;
+  camp.counts = { total: camp.people.length, scholar: camp.people.filter((p) => p.scholar).length,
+    paid: camp.people.filter((p) => p.state === "ÖDENDİ").length, partial: camp.people.filter((p) => p.state === "KISMİ").length,
+    unpaid: camp.people.filter((p) => p.state === "ÖDENMEDİ").length };
+  return camp;
+}
+
+// ── Biçim ──────────────────────────────────────────────────────────────────
+const TL = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 });
+const NUM = new Intl.NumberFormat("tr-TR");
+const tl = (v) => (v == null ? "—" : TL.format(v));
+const tlShort = (v) => (v >= 1e6 ? `₺${(v / 1e6).toLocaleString("tr-TR", { maximumFractionDigits: 1 })} Mn` : v >= 1e3 ? `₺${Math.round(v / 1e3)} B` : `₺${v}`);
+const num = (v) => NUM.format(v);
+const money = (v, cur = "TRY") => (v == null ? "—" : cur === "TRY" ? TL.format(v) : new Intl.NumberFormat("tr-TR", { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(v));
+function monthLabel(m) { const [y, mo] = m.split("-"); return `${MONTH_LONG[+mo - 1]} ${y}`; }
+function monthShort(m) { const [y, mo] = m.split("-"); return `${MONTH_SHORT[+mo - 1]} ${y.slice(2)}`; }
+function prevMonth(m) { let [y, mo] = m.split("-").map(Number); mo -= 1; if (!mo) { mo = 12; y -= 1; } return ym(y, mo); }
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const rowLink = (gid, row, text, fileId = SHEET_ID) =>
+  row == null ? esc(text ?? "—") : `<a href="${fileUrl(fileId)}#gid=${gid ?? 0}&amp;range=A${row}" target="_blank" rel="noopener">${esc(text)}</a>`;
+
+// ── Durum ─────────────────────────────────────────────────────────────────
+const now = new Date();
+const CUR = ym(now.getFullYear(), now.getMonth() + 1);
+const state = { sheets: [], lessons: [], camps: [], extras: "loading", extraErrors: [], season: null, tab: "overdue", program: "ALL", readAt: null, busy: false };
+const $ = (id) => document.getElementById(id);
+let mcpPromise = null;
+
+async function call(mcp, tool, input, refresh, server = SERVER) {
+  const res = await mcp.callTool(server, tool, input, { cache: { staleTime: 5 * 60_000, gcTime: 24 * 3600_000, refresh: !!refresh } });
+  let p = res.payload;
+  if (typeof p === "string") { try { p = JSON.parse(p); } catch { /* düz metin */ } }
+  if (res.cache?.storedAt) state.readAt = Math.min(state.readAt ?? Infinity, res.cache.storedAt);
+  return p;
+}
+
+async function mapLimit(items, n, fn) {
+  const out = new Array(items.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k], k); } }));
+  return out;
+}
+
+async function load(refresh = false, retried = false) {
+  if (state.busy) return;
+  state.busy = true; $("refresh").disabled = true;
+  setStatus(refresh ? "Drive'dan yeniden okunuyor…" : "Tablo okunuyor…");
+  try {
+    mcpPromise ||= window.claude?.use ? window.claude.use("mcp") : Promise.resolve(null);
+    const mcp = await mcpPromise;
+    if (!mcp) return showProblem("unavailable");
+    state.readAt = null;
+    const meta = await call(mcp, "get_spreadsheet", { spreadsheetId: SHEET_ID, fields: ["properties.title", "sheets.properties.title", "sheets.properties.sheetId", "sheets.properties.hidden"] }, refresh);
+    const list = (meta?.sheets || []).map((s) => s.properties).filter((p) => p && !p.hidden);
+    if (meta?.properties?.title) $("src").textContent = `Kaynak: Drive · ${meta.properties.title}`;
+    const vals = await mapLimit(list, 3, (p) => call(mcp, "get_values", { spreadsheetId: SHEET_ID, range: `'${p.title.replace(/'/g, "''")}'!A1:AD1500` }, refresh));
+    state.sheets = list.map((p, i) => parseSheet(p.title, vals[i]?.values || [], p.sheetId)).filter(Boolean);
+    state.skipped = list.filter((p, i) => !state.sheets.some((s) => s.title === p.title)).map((p) => p.title);
+    if (!state.readAt) state.readAt = Date.now();
+    fillSeasons();
+    render();
+    await loadExtras(mcp, refresh);
+    fillSeasons();
+    render();
+  } catch (e) {
+    if (e?.retryable && !retried) { state.busy = false; await new Promise((r) => setTimeout(r, Math.min(e.retryAfterMs || 1500, 8000) + Math.random() * 600)); return load(refresh, true); }
+    showProblem(e?.code || "upstream_error", e?.message);
+  } finally {
+    state.busy = false; $("refresh").disabled = false;
+  }
+}
+
+function fillSeasons() {
+  const seasons = [...new Set([...state.sheets, ...state.lessons, ...state.camps].map((s) => s.season).filter(Boolean))].sort().reverse();
+  const main = [...new Set(state.sheets.map((s) => s.season))].sort().reverse();
+  if (!state.season || !seasons.includes(state.season)) state.season = main[0] || seasons[0] || null;
+  const sel = $("season");
+  sel.innerHTML = seasons.map((s) => `<option value="${s}" ${s === state.season ? "selected" : ""}>${s}</option>`).join("");
+  sel.disabled = !seasons.length;
+}
+
+// Kamp ve bireysel ders dosyaları: bilinen dosyalar + Drive'da adıyla bulunan yenileri.
+async function discover(mcp, refresh, word, defaults) {
+  const list = new Map(defaults.map((f) => [f.id, f]));
+  try {
+    const res = await call(mcp, "search_files", { query: `mimeType = 'application/vnd.google-apps.spreadsheet' and title contains '${word}'`, pageSize: 30, excludeContentSnippets: true }, refresh, DRIVE);
+    for (const f of res?.files || []) if (!list.has(f.id)) list.set(f.id, { id: f.id, title: f.title, createdTime: f.createdTime });
+      else if (f.createdTime) list.get(f.id).createdTime = f.createdTime;
+  } catch (e) {
+    if (!["not_in_manifest", "approval_required"].includes(e?.code)) state.extraErrors.push(`Drive araması (${word}): ${e?.message || e?.code}`);
+  }
+  return [...list.values()];
+}
+async function readFile(mcp, file, refresh) {
+  const meta = await call(mcp, "get_spreadsheet", { spreadsheetId: file.id, fields: ["properties.title", "sheets.properties.title", "sheets.properties.sheetId", "sheets.properties.hidden"] }, refresh);
+  if (meta?.properties?.title) file.title = meta.properties.title;
+  const tabs = (meta?.sheets || []).map((x) => x.properties).filter((x) => x && !x.hidden);
+  const vals = await mapLimit(tabs, 3, (t) => call(mcp, "get_values", { spreadsheetId: file.id, range: `'${t.title.replace(/'/g, "''")}'!A1:P600` }, refresh));
+  return tabs.map((t, i) => ({ title: t.title, gid: t.sheetId, values: vals[i]?.values || [] }));
+}
+async function loadExtras(mcp, refresh) {
+  state.extras = "loading"; state.extraErrors = [];
+  const [lessonFiles, campFiles] = await Promise.all([
+    discover(mcp, refresh, "BİREYSEL ANTRENMANLAR", LESSON_FILES),
+    discover(mcp, refresh, "KAMP", CAMP_FILES),
+  ]);
+  const lessons = [], camps = [];
+  await mapLimit([...lessonFiles.map((f) => ["L", f]), ...campFiles.map((f) => ["C", f])], 2, async ([kind, f]) => {
+    try {
+      const tabs = await readFile(mcp, f, refresh);
+      const parsed = kind === "L" ? parseLessons(f, tabs) : parseCamp(f, tabs);
+      if (parsed) (kind === "L" ? lessons : camps).push(parsed);
+    } catch (e) {
+      state.extraErrors.push(`${f.title}: ${e?.code === "tool_error" ? "dosya okunamadı (erişim izniniz olmayabilir)" : e?.message || e?.code}`);
+    }
+  });
+  state.lessons = lessons;
+  state.camps = camps.sort((a, b) => a.title.localeCompare(b.title, "tr"));
+  state.extras = "done";
+}
+
+function setStatus(t) { $("status").textContent = t; }
+
+function showProblem(code, msg) {
+  const map = {
+    unavailable: ["Bu görünümde Drive okunamıyor", "Sayfa, Google Sheets bağlantınız üzerinden çalışır. claude.ai'de açtığınızda tablonuzu okur."],
+    needs_reauth: ["Google Sheets bağlantısının süresi dolmuş", "claude.ai → Ayarlar → Bağlayıcılar'dan Google Sheets'i yeniden bağlayın, sonra bu sayfayı yenileyin."],
+    server_not_connected: ["Google Sheets bağlı değil", "claude.ai → Ayarlar → Bağlayıcılar'dan Google Sheets'i ekleyin, sonra bu sayfayı yenileyin."],
+    selection_required: ["Hangi Google Sheets hesabı?", "Birden fazla Google Sheets bağlantınız var; claude.ai'nin sorduğu seçimi yapın."],
+    not_in_manifest: ["Tabloyu okuma izni verilmedi", "Sayfanın ödeme tablonuzu okumasına izin verirseniz rakamlar burada görünür."],
+    approval_required: ["Tabloyu okuma izni bekleniyor", "Aşağıdaki düğmeye basınca claude.ai izin isteyecek."],
+    blocked_by_policy: ["Kurum politikası engelliyor", "Google Sheets araçları bu hesap için kapatılmış."],
+    tool_error: ["Tablo okunamadı", msg || "Google Sheets hata döndürdü."],
+    server_unavailable: ["Google Sheets şu an yanıt vermiyor", "Biraz sonra yeniden okumayı deneyin."],
+  };
+  const [h, p] = map[code] || ["Tablo okunamadı", msg || "Beklenmeyen bir hata oluştu."];
+  const canRetry = ["not_in_manifest", "approval_required", "server_unavailable", "tool_error", "upstream_error"].includes(code) || !map[code];
+  setStatus("");
+  $("kpis").hidden = true;
+  $("body").innerHTML = `<div class="notice ${["tool_error", "blocked_by_policy"].includes(code) ? "crit" : ""}" role="alert">
+    <h2>${esc(h)}</h2><p>${esc(p)}</p>
+    ${canRetry ? `<div><button class="btn-plain" type="button" id="retry">${code === "approval_required" || code === "not_in_manifest" ? "İzin ver ve oku" : "Yeniden dene"}</button></div>` : ""}
+  </div>`;
+  $("retry")?.addEventListener("click", () => load(true));
+}
+
+// ── Çizim ──────────────────────────────────────────────────────────────────
+function render() {
+  const sheets = state.sheets.filter((s) => s.season === state.season);
+  const L = state.lessons.filter((l) => l.season === state.season);
+  const C = state.camps.filter((c) => c.season === state.season);
+  if (!sheets.length && !L.length && !C.length) return showProblem("tool_error", "Bu sezon için okunabilir bir ödeme sayfası bulunamadı.");
+  const o = overview(sheets, CUR);
+  const k = o.kpi;
+  const aidatTotal = k.seasonTotal;
+
+  // Bireysel dersler aylık gelire ayrı bir seri olarak eklenir (brüt ödeme tutarı).
+  const lessonByMonth = {};
+  for (const l of L) for (const [m, v] of Object.entries(l.months)) lessonByMonth[m] = (lessonByMonth[m] || 0) + v;
+  const lessonRows = L.flatMap((l) => l.rows);
+  const lessonGross = lessonRows.reduce((a, r) => a + r.amount, 0);
+  const lessonClub = lessonRows.reduce((a, r) => a + r.club, 0);
+  const lessonCoach = lessonRows.reduce((a, r) => a + r.toCoach, 0);
+  if (L.length) {
+    o.programs.push("BIREYSEL");
+    for (const t of o.totals) { t.by.BIREYSEL = lessonByMonth[t.month] || 0; t.total += t.by.BIREYSEL; }
+  }
+  const campTRY = { paid: 0, remaining: 0 }, campFx = {};
+  for (const c of C) for (const [cur, x] of Object.entries(c.byCurrency)) {
+    if (cur === "TRY") { campTRY.paid += x.paid; campTRY.remaining += x.remaining; }
+    else { const f = (campFx[cur] ||= { paid: 0, remaining: 0 }); f.paid += x.paid; f.remaining += x.remaining; }
+  }
+  const fxText = Object.entries(campFx).map(([cur, f]) => money(f.paid, cur)).join(" + ");
+  const grand = aidatTotal + lessonGross + campTRY.paid;
+  const loading = state.extras === "loading";
+
+  const read = new Date(state.readAt).toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  const srcCount = sheets.length + L.length + C.length;
+  $("status").innerHTML = `Son okuma ${esc(read)} · ${srcCount} kaynak${loading ? " · kamp ve bireysel ders tabloları okunuyor…" : ""}`;
+  $("kpis").hidden = true; // ilk boyamadaki iskelet; özet kartları aşağıda yeniden çiziliyor
+  const tone = (cls, icon, label) => `<span class="tag ${cls}" aria-label="${label}">${icon} ${label}</span>`;
+  const tile = ([l, v, h]) => `<div class="kpi"><div class="lab">${esc(l)}</div><div class="val">${v}</div><div class="hint">${h}</div></div>`;
+  const kpiHtml = [
+    [`${monthLabel(CUR)} aidat`, tl(k.month), `Önceki ay ${tl(k.prev)}`],
+    ["Bu ay ödeyen / ödemeyen", `${num(k.payers)} / ${num(k.nonPayers)}`, k.nonPayers ? tone("t-warn", "●", "takip") : tone("t-good", "▲", "tamam")],
+    ["Gecikmiş aidat", `${num(k.overdue)} sporcu`, `${k.overdue ? tone("t-crit", "▼", "gecikme") : tone("t-good", "▲", "yok")} tahmini ${tl(k.open)}`],
+    ["Sezonluk taksit bekleyen", num(k.pending), "Geçmiş ayda boş taksit hücresi"],
+    ["Aktif sporcu", num(k.active), `${k.monthly} aylık · ${k.seasonal} sezonluk · ${k.scholar} burslu`],
+    ["Tekstil (kayıtlı)", tl(k.textile), "Ödeme ayı tabloda yok"],
+  ].map(tile).join("");
+
+  $("body").innerHTML = `
+  <section class="sum" aria-label="Sezon gelir özeti">
+    ${[
+      [`Toplam tahsilat · ${state.season}`, tl(grand), fxText ? `Yabancı para ayrıca: ${esc(fxText)}` : "Aidat + bireysel ders + kamp"],
+      ["Aidat", tl(aidatTotal), `${sheets.length} sayfa`],
+      ["Bireysel ders (brüt)", loading ? "…" : L.length ? tl(lessonGross) : "—", loading ? "okunuyor" : L.length ? `Kulübe kalan ${tl(lessonClub)} · antrenöre ${tl(lessonCoach)}` : "Bu sezon için ödeme tablosu yok"],
+      ["Kamplar (tahsil)", loading ? "…" : C.length ? tl(campTRY.paid) : "—", loading ? "okunuyor" : C.length ? `${C.length} kamp · kalan alacak ${tl(campTRY.remaining)}` : "Bu sezon için kamp yok"],
+    ].map(tile).join("")}
+  </section>
+  ${state.extraErrors.length ? `<div class="notice" role="status"><h2>Bazı ek tablolar okunamadı</h2><p>${state.extraErrors.map(esc).join("<br>")}</p></div>` : ""}
+
+  <div class="sec-h"><h2>Aidat</h2><span>Genel ödeme tablosu</span></div>
+  ${sheets.length ? `<section class="kpis" aria-label="Aidat özeti">${kpiHtml}</section>` : ""}
+  <div class="grid2">
+    <section class="panel" aria-labelledby="h-chart">
+      <h2 id="h-chart">Aylık gelir</h2><p class="sub">Aidat ayına göre program bazında${L.length ? "; bireysel ders ödeme ayına göre" : ""}</p>
+      <div class="legend">${o.programs.map((p) => `<span><i style="background:${PROGRAM_COLOR[p]}"></i>${PROGRAM_LABEL[p]}</span>`).join("")}</div>
+      <div class="chart" id="chart"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-bil">
+      <h2 id="h-bil">BİLANÇO</h2><p class="sub">Drive'daki boş genel gelir tablosunun hesaplanmış hali. Ödeyen/ödemeyen sayıları aidat içindir.</p>
+      <div class="scroll">${bilanco(o)}</div>
+    </section>
+  </div>
+  <section class="panel" aria-labelledby="h-unpaid">
+    <h2 id="h-unpaid">Aidat ödeme takibi</h2>
+    <p class="sub">Aylık sporcuda başladıktan sonra boş kalan ay ödenmemiş sayılır. Bırakanlar, adaylar ve burslular hariç. İsme tıklayınca tablodaki satır açılır.</p>
+    <div id="unpaid"></div>
+  </section>
+
+  <div class="sec-h"><h2>Kamplar</h2><span>${C.length ? C.map((c) => esc(c.title)).join(" · ") : ""}</span></div>
+  ${loading ? `<p class="sub">Kamp tabloları okunuyor…</p>` : C.length ? campsSection(C) : `<section class="panel"><p class="sub">Bu sezon için kamp tablosu bulunamadı. Drive'da adında "KAMP" geçen yeni tablolar otomatik eklenir.</p></section>`}
+
+  <div class="sec-h"><h2>Bireysel dersler</h2><span>${L.map((l) => esc(l.file.title)).join(" · ")}</span></div>
+  ${loading ? `<p class="sub">Bireysel ders tablosu okunuyor…</p>` : L.length ? lessonsSection(L) : `<section class="panel"><p class="sub">${esc(state.season)} sezonu için bireysel ders ödeme tablosu bulunamadı. Drive'da adında "BİREYSEL ANTRENMANLAR" ve sezon (ör. 2026-2027) geçen tablo açıldığında otomatik eklenir. Önceki sezonlar sezon seçiciden görülebilir.</p></section>`}
+
+  <section class="panel" aria-labelledby="h-team">
+    <h2 id="h-team">Takım ve grup kırılımı (aidat)</h2><p class="sub">Sezon boyunca tahsil edilen ve bu ayki durum</p>
+    <div class="scroll">${teamTable(o)}</div>
+  </section>
+  ${(() => { const all = [...o.issues, ...L.flatMap((l) => l.issues), ...C.flatMap((c) => c.issues)]; return `<details class="panel">
+    <summary>Veri kalitesi · ${all.length} uyarı</summary>
+    <p class="sub" style="margin-top:8px">Tablodaki bu hücreler düzeltilince bir sonraki okumada liste kısalır.${state.skipped?.length ? ` Okunmayan sayfalar (sezon bilgisi yok ya da ödeme tablosu değil): ${state.skipped.map(esc).join(", ")}.` : ""}</p>
+    <div class="scroll">${issuesTable(all)}</div>
+  </details>`; })()}
+  <p class="foot">Aidatta aylar tablodaki aidat sütunlarıdır; bireysel derste ödemenin girildiği aylık sekmedir. Kamp tahsilatı taksit sütunlarının toplamıdır (taksit yoksa "ödeme durumu" tutarı). Kamp ve bireysel ders için tahsilat brüt tutardır; kamp giderleri tablolarda olmadığı için kâr hesaplanmaz. Sayfa tablolara yalnızca okuma erişimiyle bakar.</p>`;
+  drawChart(o);
+  if (sheets.length) renderUnpaid(o);
+}
+
+function campsSection(C) {
+  const cards = C.map((c) => {
+    const rows = Object.entries(c.byCurrency).map(([cur, x]) => {
+      const pct = x.expected ? Math.min(100, (x.paid / x.expected) * 100) : 0;
+      return `<div class="row"><span>Alınacak</span><b>${money(x.expected, cur)}</b></div>
+        <div class="row"><span>Tahsil edilen</span><b>${money(x.paid, cur)}</b></div>
+        <div class="row"><span>Kalan</span><b class="${x.remaining > 0.5 ? "t-crit" : "ok"}">${money(x.remaining, cur)}</b></div>
+        <div class="bar" role="img" aria-label="Tahsilat oranı yüzde ${Math.round(pct)}"><i style="width:${pct}%"></i></div>
+        <div class="mini">Tahsilat %${Math.round(pct)}${cur !== "TRY" ? ` · tabloda ${cur === "GBP" ? "£" : cur} ile girilmiş` : ""}</div>`;
+    }).join("");
+    const n = c.counts;
+    return `<article class="camp"><h3><a href="${fileUrl(c.file.id)}" target="_blank" rel="noopener">${esc(c.title)}</a></h3>
+      <div class="mini">${num(n.total)} katılımcı · ${num(n.paid)} ödedi · ${num(n.partial)} kısmi · ${num(n.unpaid)} ödemedi${n.scholar ? ` · ${num(n.scholar)} burslu` : ""}</div>
+      ${rows}</article>`;
+  }).join("");
+  const open = C.flatMap((c) => c.people.filter((p) => !p.scholar && (p.remaining > 0.5 || p.refund || p.state === "BELİRSİZ")).map((p) => ({ c, p })))
+    .sort((a, b) => b.p.remaining - a.p.remaining || a.p.name.localeCompare(b.p.name, "tr"));
+  const label = { "ÖDENMEDİ": ["t-crit", "▼ ödemedi"], "KISMİ": ["t-warn", "● kısmi"], "ÖDENDİ": ["t-good", "▲ ödendi"], "BELİRSİZ": ["t-warn", "● ücret yok"] };
+  return `<div class="camps">${cards}</div>
+  <section class="panel" aria-labelledby="h-campopen">
+    <h2 id="h-campopen">Kamp ödemesi kalanlar</h2><p class="sub">${num(open.length)} kişi · iade notu olanlar da listede</p>
+    ${open.length ? `<div class="scroll"><table><thead><tr><th>Kamp</th><th>Sporcu</th><th>Takım</th><th>Antrenör</th><th class="n">Ücret</th><th class="n">Ödenen</th><th class="n">Kalan</th><th>Durum</th><th>Ödeme şekli</th><th>Not</th></tr></thead><tbody>
+    ${open.map(({ c, p }) => `<tr><td>${esc(c.title)}</td><td class="name">${rowLink(p.gid, p.rowNumber, p.name, c.file.id)}</td><td>${esc(p.team)}</td><td>${esc(p.coach)}</td>
+      <td class="n">${money(p.fee, p.currency)}</td><td class="n">${money(p.paid, p.currency)}</td><td class="n">${money(p.remaining, p.currency)}</td>
+      <td><span class="tag ${label[p.state][0]}">${label[p.state][1]}</span>${p.refund ? ` <span class="tag t-warn">iade</span>` : ""}</td>
+      <td>${esc(p.method)}</td><td class="note">${esc(p.note)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="sub">Kalan ödeme yok.</p>`}
+  </section>`;
+}
+
+function lessonsSection(L) {
+  const rows = L.flatMap((l) => l.rows);
+  const genel = Object.assign({}, ...L.map((l) => l.genel));
+  const shareLabel = L[0].shareLabel;
+  const months = [...new Set(rows.map((r) => r.month))].sort();
+  const agg = (list) => list.reduce((a, r) => ({ n: a.n + 1, lessons: a.lessons + (r.lessons || 0), amount: a.amount + r.amount, toCoach: a.toCoach + r.toCoach, club: a.club + r.club, share: a.share + r.share }), { n: 0, lessons: 0, amount: 0, toCoach: 0, club: 0, share: 0 });
+  const tot = agg(rows);
+  const byCoach = new Map();
+  for (const r of rows) { if (!byCoach.has(r.coach)) byCoach.set(r.coach, []); byCoach.get(r.coach).push(r); }
+  const coaches = [...byCoach.entries()].map(([c, list]) => ({ c, students: new Set(list.map((r) => key(r.name))).size, ...agg(list) })).sort((a, b) => b.amount - a.amount);
+  const extra = L.flatMap((l) => l.extra);
+  const extraTotal = extra.reduce((a, e) => a + e.amount, 0);
+  const check = (m, v) => (genel[m] == null ? `<span class="mini">—</span>` : Math.abs(genel[m] - v) <= 1 ? `<span class="ok" title="GENEL sekmesiyle aynı">✓</span>` : `<span class="diff" title="GENEL: ${tl(genel[m])}">≠ ${tl(genel[m])}</span>`);
+  return `<div class="grid2">
+  <section class="panel" aria-labelledby="h-lm">
+    <h2 id="h-lm">Aylık dağılım</h2><p class="sub">Ödeme tutarı ve paylaşım; son sütun tablodaki GENEL sekmesiyle karşılaştırma</p>
+    <div class="scroll"><table><thead><tr><th>Ay</th><th class="n">Paket</th><th class="n">Ders</th><th class="n">Brüt</th><th class="n">Antrenöre</th><th class="n">Kulübe kalan</th><th class="n">${esc(shareLabel)}</th><th class="n">GENEL</th></tr></thead><tbody>
+    ${months.map((m) => { const a = agg(rows.filter((r) => r.month === m)); return `<tr class="${m === CUR ? "cur" : ""}"><td>${monthLabel(m)}</td><td class="n">${num(a.n)}</td><td class="n">${num(a.lessons)}</td><td class="n">${tl(a.amount)}</td><td class="n">${tl(a.toCoach)}</td><td class="n">${tl(a.club)}</td><td class="n">${tl(a.share)}</td><td class="n">${check(m, a.amount)}</td></tr>`; }).join("")}
+    </tbody><tfoot><tr><td>Toplam</td><td class="n">${num(tot.n)}</td><td class="n">${num(tot.lessons)}</td><td class="n">${tl(tot.amount)}</td><td class="n">${tl(tot.toCoach)}</td><td class="n">${tl(tot.club)}</td><td class="n">${tl(tot.share)}</td><td></td></tr></tfoot></table></div>
+    ${extra.length ? `<details style="margin-top:10px"><summary style="font-size:15px">Ek ödemeler (bireysel kasadan) · ${tl(extraTotal)}</summary>
+      <div class="scroll"><table><thead><tr><th>Kime</th><th class="n">Tutar</th><th>Tarih</th><th>Sebep</th></tr></thead><tbody>
+      ${extra.map((e) => `<tr><td>${esc(e.who)}</td><td class="n">${tl(e.amount)}</td><td>${esc(e.date)}</td><td>${esc(e.why)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="mini">Kulübe kalan ${tl(tot.club)} − ek ödemeler ${tl(extraTotal)} = ${tl(tot.club - extraTotal)}</p></details>` : ""}
+  </section>
+  <section class="panel" aria-labelledby="h-lc">
+    <h2 id="h-lc">Antrenör bazında</h2><p class="sub">Sezon toplamı</p>
+    <div class="scroll"><table><thead><tr><th>Antrenör</th><th class="n">Öğrenci</th><th class="n">Ders</th><th class="n">Brüt</th><th class="n">Antrenöre</th><th class="n">Kulübe</th></tr></thead><tbody>
+    ${coaches.map((c) => `<tr><td>${esc(c.c)}</td><td class="n">${num(c.students)}</td><td class="n">${num(c.lessons)}</td><td class="n">${tl(c.amount)}</td><td class="n">${tl(c.toCoach)}</td><td class="n">${tl(c.club)}</td></tr>`).join("")}
+    </tbody></table></div>
+  </section></div>`;
+}
+
+function bilanco(o) {
+  const sum = (f) => o.totals.reduce((a, t) => a + f(t), 0);
+  return `<table><thead><tr><th>Ay</th>${o.programs.map((p) => `<th class="n">${PROGRAM_LABEL[p]}</th>`).join("")}<th class="n">Toplam</th><th class="n">Ödeyen</th><th class="n">Ödemeyen</th><th class="n">Taksit</th></tr></thead>
+  <tbody>${o.totals.map((t) => `<tr class="${t.future ? "fut" : ""} ${t.month === CUR ? "cur" : ""}"><td>${monthLabel(t.month)}</td>
+    ${o.programs.map((p) => `<td class="n">${t.future ? "—" : tl(t.by[p])}</td>`).join("")}
+    <td class="n">${t.future ? "—" : tl(t.total)}</td><td class="n">${t.future ? "—" : num(t.payers)}</td>
+    <td class="n ${t.nonPayers && !t.future ? "t-crit" : ""}">${t.future ? "—" : t.nonPayers ? `▼ ${num(t.nonPayers)}` : "0"}</td>
+    <td class="n">${t.future ? "—" : num(t.pending)}</td></tr>`).join("")}</tbody>
+  <tfoot><tr><td>Toplam</td>${o.programs.map((p) => `<td class="n">${tl(sum((t) => t.by[p]))}</td>`).join("")}<td class="n">${tl(sum((t) => t.total))}</td><td colspan="3"></td></tr></tfoot></table>`;
+}
+
+function drawChart(o) {
+  const data = o.totals.filter((t) => !t.future);
+  const W = 720, H = 280, L = 64, R = 10, T = 12, B = 30;
+  const max = Math.max(1, ...data.flatMap((t) => o.programs.map((p) => t.by[p])));
+  const step = niceStep(max / 4); const top = Math.ceil(max / step) * step;
+  const y = (v) => T + (H - T - B) * (1 - v / top);
+  const gw = (W - L - R) / Math.max(1, data.length);
+  const bw = Math.min(26, (gw - 14) / o.programs.length - 2);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Aylık gelir grafiği">`;
+  for (let v = 0; v <= top + 1e-6; v += step) svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" /><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${tlShort(v)}</text>`;
+  data.forEach((t, i) => {
+    const gx = L + i * gw + (gw - (bw + 2) * o.programs.length) / 2;
+    o.programs.forEach((p, j) => {
+      const v = t.by[p]; const h = Math.max(0, y(0) - y(v)); const x = gx + j * (bw + 2);
+      if (v > 0) svg += `<path d="M${x},${y(0)} v${-Math.max(0, h - 3)} q0,-3 3,-3 h${bw - 6} q3,0 3,3 v${Math.max(0, h - 3)} z" fill="${PROGRAM_COLOR[p]}" data-tip="${esc(`${monthLabel(t.month)} · ${PROGRAM_LABEL[p]}: ${tl(v)}`)}"><title>${esc(`${monthLabel(t.month)} · ${PROGRAM_LABEL[p]}: ${tl(v)}`)}</title></path>`;
+    });
+    svg += `<text x="${L + i * gw + gw / 2}" y="${H - 8}" text-anchor="middle">${monthShort(t.month)}</text>`;
+  });
+  svg += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)" /></svg><div class="tip" id="tip" hidden></div>`;
+  const box = $("chart"); box.innerHTML = svg;
+  const tip = $("tip");
+  box.addEventListener("mousemove", (e) => {
+    const t = e.target.closest("[data-tip]");
+    if (!t) { tip.hidden = true; return; }
+    const r = box.getBoundingClientRect();
+    tip.textContent = t.dataset.tip; tip.hidden = false;
+    tip.style.left = `${Math.min(e.clientX - r.left + 12, r.width - tip.offsetWidth - 4)}px`; tip.style.top = `${e.clientY - r.top - 36}px`;
+  });
+  box.addEventListener("mouseleave", () => { tip.hidden = true; });
+}
+function niceStep(raw) { const p = 10 ** Math.floor(Math.log10(raw || 1)); const f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+
+function renderUnpaid(o) {
+  const groups = {
+    overdue: o.unpaid.filter((u) => u.kind === "DUE" && u.overdue > 0),
+    month: o.unpaid.filter((u) => u.kind === "DUE" && u.overdue === 0 && u.months.includes(CUR)),
+    pending: o.unpaid.filter((u) => u.kind === "PENDING"),
+  };
+  const tabs = [["overdue", `Gecikmiş (${groups.overdue.length})`], ["month", `Yalnız bu ay (${groups.month.length})`], ["pending", `Sezonluk taksit (${groups.pending.length})`]];
+  const rows = groups[state.tab].filter((u) => state.program === "ALL" || u.s.program === state.program);
+  $("unpaid").innerHTML = `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${state.tab === k}">${l}</button>`).join("")}
+    <select id="prog" aria-label="Program"><option value="ALL">Tüm programlar</option>${o.programs.map((p) => `<option value="${p}" ${state.program === p ? "selected" : ""}>${PROGRAM_LABEL[p]}</option>`).join("")}</select></div>
+    ${rows.length ? `<div class="scroll"><table><thead><tr><th>Sporcu</th><th>Program / takım</th><th>Koç</th><th>Boş aylar</th><th class="n">Olağan aidat</th><th class="n">Tahmini</th><th>Son ödeme</th><th>Not</th></tr></thead><tbody>
+    ${rows.map((u) => `<tr><td class="name">${rowLink(u.s.gid, u.r.rowNumber, u.r.name)}</td>
+      <td>${PROGRAM_LABEL[u.s.program]}${u.r.team && norm(u.r.team) !== norm(PROGRAM_LABEL[u.s.program]) ? ` · ${esc(u.r.team)}` : ""}</td>
+      <td>${esc(u.r.coach || "—")}</td><td>${u.months.map(monthShort).join(", ")}</td>
+      <td class="n">${tl(u.r.typicalFee)}</td><td class="n">${tl(u.est)}</td><td>${u.lastPaid ? monthShort(u.lastPaid) : "—"}</td>
+      <td class="note">${esc(u.r.note || "")}</td></tr>`).join("")}</tbody></table></div>` : `<p class="sub">Bu listede kimse yok.</p>`}`;
+  $("unpaid").querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; renderUnpaid(o); }));
+  $("prog").addEventListener("change", (e) => { state.program = e.target.value; renderUnpaid(o); });
+}
+
+function teamTable(o) {
+  return `<table><thead><tr><th>Program</th><th>Takım / grup</th><th>Koç</th><th class="n">Aktif sporcu</th><th class="n">Sezon geliri</th><th class="n">Bu ay</th><th class="n">Bu ay ödemeyen</th></tr></thead><tbody>
+  ${o.teams.map((t) => `<tr><td>${PROGRAM_LABEL[t.program]}</td><td>${esc(t.team)}</td><td>${esc(t.coach || "—")}</td><td class="n">${num(t.athletes)}</td><td class="n">${tl(t.season)}</td><td class="n">${tl(t.month)}</td><td class="n ${t.due ? "t-crit" : ""}">${t.due ? `▼ ${t.due}` : "0"}</td></tr>`).join("")}</tbody></table>`;
+}
+
+function issuesTable(list) {
+  if (!list.length) return `<p class="sub">Uyarı yok.</p>`;
+  return `<table><thead><tr><th>Sayfa</th><th>Satır</th><th>Sporcu</th><th>Sorun</th><th>Ayrıntı</th></tr></thead><tbody>
+  ${list.slice(0, 200).map((i) => `<tr><td>${esc(i.sheet)}</td><td class="n">${rowLink(i.gid, i.row, i.row ?? "—", i.fileId)}</td><td>${esc(i.name)}</td><td>${esc(i.kind)}</td><td class="note">${esc(i.detail)}</td></tr>`).join("")}</tbody></table>`;
+}
+
+$("refresh").addEventListener("click", () => load(true));
+$("season").addEventListener("change", (e) => { state.season = e.target.value; render(); });
+load(false);
+</script>

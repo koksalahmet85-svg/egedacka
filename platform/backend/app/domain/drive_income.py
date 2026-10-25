@@ -82,25 +82,29 @@ def _key(text: object) -> str:
 
 # ── Tutar ayrıştırma ─────────────────────────────────────────────────────────
 
-_THOUSANDS_ONLY = re.compile(r"^\d{1,3}(\.\d{3})+$")
-
 
 def parse_amount(value: object) -> Decimal | None:
-    """'45.000,00 TRY', '₺19.800', '650,00', '2.600', 8100.0 → Decimal. Tutar değilse None."""
+    """Türkçe (45.000,00) ve İngilizce (39,000.00) biçimler, ondalık nokta (362.6), ₺/£/€ işaretleri.
+
+    İki ayraç birlikteyse sondaki ondalıktır; tek ayraç 3'lü gruplar halindeyse binliktir.
+    """
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, int | float | Decimal):
         return money(value) if value > 0 else None
-    s = norm(value).replace("TRY", "").replace("TL", "").replace("₺", "").replace(" ", "")
+    s = re.sub(r"TRY|TL|EUR|GBP|USD|[₺£€$\s]", "", norm(value))
     if not s or not re.fullmatch(r"[\d.,]+", s) or not re.search(r"\d", s):
         return None
+    dot, comma = s.rfind("."), s.rfind(",")
+    if dot >= 0 and comma >= 0:
+        dec, thou = (".", ",") if dot > comma else (",", ".")
+        s = s.replace(thou, "").replace(dec, ".")
+    elif comma >= 0:
+        s = s.replace(",", "") if re.fullmatch(r"\d{1,3}(,\d{3})+", s) else s.replace(",", ".")
+    elif dot >= 0 and re.fullmatch(r"\d{1,3}(\.\d{3})+", s):
+        s = s.replace(".", "")
     try:
-        if "," in s:  # Türkçe biçim: binlik nokta, ondalık virgül
-            d = Decimal(s.replace(".", "").replace(",", "."))
-        elif _THOUSANDS_ONLY.match(s):  # 19.800 → 19800
-            d = Decimal(s.replace(".", ""))
-        else:
-            d = Decimal(s)
+        d = Decimal(s)
     except InvalidOperation:
         return None
     return money(d) if d > 0 else None
