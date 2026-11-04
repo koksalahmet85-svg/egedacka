@@ -1,11 +1,11 @@
 """Basit günlük backtest: kurallar strateji.py ile birebir. Maliyet: işlem hacminin %0.10'u."""
-import math, sys
+import math, sys, os
 import numpy as np, pandas as pd
 from strateji import veri, hedef_agirlik, RISKLI, ESIK, GUNLUK_KURAL
 
 MALIYET = 0.0010
 adj, cls = veri("max")
-adj = adj[adj.index >= "2007-06-01"]
+adj = adj[adj.index >= os.environ.get("BASLA", "2007-06-01")]
 ret = adj.pct_change().fillna(0)
 sma200 = adj.rolling(200).mean()
 gunler = adj.index[260:]

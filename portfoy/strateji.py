@@ -2,7 +2,9 @@
 Cloue Portföy Sistemi — kural tabanlı, kanıta dayalı ETF rotasyonu.
 
 Kurallar (değiştirmeden önce backtest et):
-  1. Evren: SPY, QQQ, VEA, VWO, GLD (riskli)  |  IEF, BIL (savunma)
+  1. Evren: SPY, QQQ, VEA, VWO, GLD, BTC, ETH (riskli)  |  IEF, BIL (savunma)
+     Kripto toplamı en fazla %20 (BTC/ETH maks. düşüşleri −%83/−%94).
+     Kripto zaman serisi momentumu: Liu & Tsyvinski 2021, RFS.
   2. Momentum skoru = 1, 3, 6, 12 aylık getirilerin ortalaması
      (Jegadeesh & Titman 1993; Moskowitz, Ooi & Pedersen 2012)
   3. Trend filtresi: fiyat > 200 günlük ortalama VE skor > 0
@@ -20,7 +22,10 @@ import urllib.request
 import numpy as np
 import pandas as pd
 
-RISKLI = ["SPY", "QQQ", "VEA", "VWO", "GLD"]
+import os
+KRIPTO = ["BTC-USD", "ETH-USD"] if os.environ.get("KRIPTO", "1") == "1" else []
+KRIPTO_MAX = 0.20   # kripto toplamı portföyün en fazla %20'si
+RISKLI = ["SPY", "QQQ", "VEA", "VWO", "GLD"] + KRIPTO
 SAVUNMA = ["IEF", "BIL"]
 EVREN = RISKLI + SAVUNMA
 import os
@@ -75,6 +80,11 @@ def hedef_agirlik(adj: pd.DataFrame) -> dict:
         top = sum(iv.values())
         for s in secilen:
             w[s] = iv[s] / top * len(secilen) / TOP_N
+    kw = sum(w.get(s, 0) for s in KRIPTO)
+    if kw > KRIPTO_MAX:
+        for s in KRIPTO:
+            if s in w:
+                w[s] *= KRIPTO_MAX / kw
     bos = 1 - sum(w.values())
     if bos > 1e-9:
         savunma = "IEF" if (p["IEF"] > sma["IEF"] and skor["IEF"] > 0) else "BIL"

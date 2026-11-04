@@ -10,7 +10,16 @@ Kararı tahmin değil kurallar verir. Kurallar: `strateji.py` başındaki açık
 | SPY al-tut | 12,3% | 19,7% | 0,69 | −47,2% |
 | 60/40 | 9,0% | 11,4% | 0,82 | −27,7% |
 
-Dürüst okuma: getiri boğa piyasasında S&P 500'ün gerisinde kalır; avantajı krizlerde **yarı-üçte bir düşüş**.
+### Kripto eklendikten sonra (BTC+ETH, en fazla %20) — 2018-11 → 2026-11
+| | Yıllık getiri | Volatilite | Sharpe | Maks. düşüş |
+|---|---|---|---|---|
+| **Cloue + kripto** | 16,3% | 17,0% | 0,98 | −25,9% |
+| Cloue kriptosuz | 11,2% | 12,6% | 0,91 | −15,7% |
+| SPY al-tut | 15,9% | 19,3% | 0,86 | −33,7% |
+
+Uyarı: BTC ve ETH bugünün kazananları olduğu için seçildi (geriye dönük seçim yanlılığı); bu dönem kriptonun en iyi on yılıdır. Gelecekte bu farkın küçülmesini bekle.
+
+Dürüst okuma (ETF-only, 2008→): getiri boğa piyasasında S&P 500'ün gerisinde kalır; avantajı krizlerde **yarı-üçte bir düşüş**.
 4 varyant denendi (vol hedefi açık/kapalı × günlük kural açık/kapalı), Sharpe 0,73–0,82 — farklar istatistiksel olarak anlamsız; en az kurallı + en düşük düşüşlü olan seçildi.
 
 ## Akış

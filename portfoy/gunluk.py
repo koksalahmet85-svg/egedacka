@@ -65,6 +65,8 @@ def main():
               "Emirler (önce satışları gir; ABD açılışı 17:30 TSİ'den ~15 dk sonra, limit emir: alışta son fiyat +%0,2, satışta −%0,2):", "",
               "| İşlem | Sembol | Adet | Ref. fiyat | Tutar |", "|---|---|---|---|---|"]
         L += [f"| {i} | {s} | {a:.3f} | {p:.2f} | {t:,.2f} $ |" for i, s, a, p, t in emirler]
+        if any(s.endswith("-USD") for _, s, *_ in emirler):
+            L += ["", "Kripto satırları (BTC-USD, ETH-USD) **Midas Kripto** hesabında, dolar tutarının TL karşılığıyla girilir; 7/24 açık. ETF'ler Midas Yatırım'da (ABD seansı)."]
         L += ["", "İşlemleri yapınca gerçekleşen **adet ve fiyatları** bana yaz, kaydı ben güncelleyeceğim."]
     else:
         L += ["## ✅ Bugün işlem yok", "", f"Durum: {sebep or 'kurallar tetiklenmedi'}. Ekrana bakma, panik satışı yapma."]
