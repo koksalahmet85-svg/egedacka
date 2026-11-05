@@ -53,8 +53,10 @@ def fiyat_cek(sembol, aralik="2y"):
 
 def veri(aralik="2y"):
     d = {s: fiyat_cek(s, aralik) for s in EVREN}
-    adj = pd.DataFrame({s: d[s]["adj"] for s in EVREN}).dropna()
-    cls = pd.DataFrame({s: d[s]["close"] for s in EVREN}).dropna()
+    # takvim = ETF işlem günleri; kripto (7/24, bazen eksik bar) bu takvime ileri doldurulur
+    takvim = pd.DataFrame({s: d[s]["adj"] for s in EVREN if s not in KRIPTO}).dropna().index
+    adj = pd.DataFrame({s: d[s]["adj"].reindex(takvim.union(d[s].index)).ffill().reindex(takvim) for s in EVREN}).dropna()
+    cls = pd.DataFrame({s: d[s]["close"].reindex(takvim.union(d[s].index)).ffill().reindex(takvim) for s in EVREN}).dropna()
     # seans bitmeden çalışırsa bugünün yarım barını at (NY 16:30 öncesi)
     from zoneinfo import ZoneInfo
     ny = dt.datetime.now(ZoneInfo("America/New_York"))
