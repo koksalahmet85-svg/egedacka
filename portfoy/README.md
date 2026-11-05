@@ -28,6 +28,11 @@ Dürüst okuma (ETF-only, 2008→): getiri boğa piyasasında S&P 500'ün gerisi
 3. Sen emirleri ABD seansında (17:30 TSİ sonrası) girersin, gerçekleşen adet/fiyatı yazarsın.
 4. Cloue `python3 islem.py AL SPY 0.488 765.10 --dengeleme` ile kaydeder.
 
+## Aylık katkı (1000 $/ay)
+- Para Midas'a geçince bana yaz → `python3 islem.py YATIR 1000 <o anki değer>`.
+- Ertesi sabah rapor **KATKI** emirleri üretir: yeni para eksik kalan hedef ağırlıklara gider, satış yapılmaz (maliyet + vergi tasarrufu).
+- Getiri **birim (fon payı) bazında** ölçülür; katkılar getiri gibi görünmez.
+
 ## Değişmez kurallar
 - Kurallar dışında işlem yok. Fikir gelirse önce backtest, sonra karar.
 - Değerlendirme dönemi: en az 12 ay. Tek ay/çeyrek sonucu sinyal değil, gürültüdür.

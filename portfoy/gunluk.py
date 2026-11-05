@@ -17,9 +17,11 @@ def main():
 
     poz = d["pozisyonlar"]
     deger = d["nakit"] + sum(a * fiyat[s] for s, a in poz.items())
-    d["zirve_deger"] = max(d["zirve_deger"], deger)
-    dd = deger / d["zirve_deger"] - 1
-    kz = deger / d["baslangic_sermaye"] - 1
+    # birim (fon payı) muhasebesi: aylık katkılar getiriyi şişirmesin
+    birim_deger = deger / d["birim"]
+    d["zirve_birim"] = max(d.get("zirve_birim", 1.0), birim_deger)
+    dd = birim_deger / d["zirve_birim"] - 1
+    kz = birim_deger - 1
     mevcut_w = {s: a * fiyat[s] / deger for s, a in poz.items()}
     if d["nakit"] > 0.5:
         mevcut_w["NAKİT"] = d["nakit"] / deger
@@ -43,9 +45,18 @@ def main():
             sebep = f"TREND ÇIKIŞI — {', '.join(cik)} 3 kapanıştır 200 günlük ortalamanın altında"
             hedef = {s: w for s, w in mevcut_w.items() if s not in cik and s != "NAKİT"}
             hedef["BIL"] = hedef.get("BIL", 0) + sum(mevcut_w.get(s, 0) for s in cik) + mevcut_w.get("NAKİT", 0)
+        elif d["nakit"] / deger > ESIK:
+            sebep = "KATKI — yeni para hedef ağırlıklara göre yerleştiriliyor (satış yok)"
 
     emirler = []
-    if sebep:
+    if sebep and sebep.startswith("KATKI"):
+        acik = {s: max(0.0, w * deger - poz.get(s, 0) * fiyat[s]) for s, w in hedef.items()}
+        top = sum(acik.values()) or 1
+        for s, a in acik.items():
+            tutar = a / top * d["nakit"]
+            if tutar >= 10:
+                emirler.append(("AL", s, tutar / fiyat[s], fiyat[s], tutar))
+    elif sebep:
         semb = (set(hedef) | set(poz))
         fark = max(abs(hedef.get(s, 0) - mevcut_w.get(s, 0)) for s in semb)
         if sebep.startswith("AYLIK") and fark < ESIK and set(hedef) == set(poz):
@@ -59,7 +70,7 @@ def main():
                 emirler.append((("SAT" if delta < 0 else "AL"), s, abs(delta), fiyat[s], abs(delta) * fiyat[s]))
 
     L = [f"# Cloue Portföy — {dt.date.today()} (son kapanış: {son.date()})", "",
-         f"**Değer:** {deger:,.2f} $ | **Toplam:** {kz:+.2%} | **Zirveden düşüş:** {dd:.2%}", ""]
+         f"**Değer:** {deger:,.2f} $ | **Yatırılan:** {d['yatirilan']:,.0f} $ | **Getiri (birim bazlı):** {kz:+.2%} | **Zirveden düşüş:** {dd:.2%}", ""]
     if emirler:
         L += [f"## ⚠️ İŞLEM GÜNÜ: {sebep}", "",
               "Emirler (önce satışları gir; ABD açılışı 17:30 TSİ'den ~15 dk sonra, limit emir: alışta son fiyat +%0,2, satışta −%0,2):", "",
