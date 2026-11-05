@@ -1,0 +1,5 @@
+[capture] renderer: canvas2d type specimen
+[capture] qc: "Kadro maliyeti gelirin y…" is 46 characters on one line (max 42); wrap() it
+[capture] page: 1920x1080, 1 frames @ 1 fps
+[capture] done: 1 rendered, 0 skipped, 1.9 s total, 0.53 fps, 1 worker(s)
+[capture] frames: /home/user/Filmler/sozlesmenin-anatomisi/review/type-3/%06d.jpg

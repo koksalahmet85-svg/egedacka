@@ -1,0 +1,27 @@
+# media and render output (kept on disk, out of git)
+renders/
+frames/
+review/qc-*/
+research/.cache/
+*.mp4
+*.mov
+*.wav
+*.aiff
+*.flac
+*.mp3
+*.ogg
+*.opus
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.img
+*.woff2
+*.otf
+*.ttf
+.env
+.DS_Store
+__pycache__/
+# brand fonts supplied by the user stay local
+fonts/

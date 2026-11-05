@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Teraslar: S11, the first spill (style frame)</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;max-width:100vw;max-height:100vh;height:auto;margin:0 auto}</style>
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+  "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.39.5/build/index.js" } }</script>
+</head>
+<body>
+<script type="module">
+// Teraslar, shot S11 (UEFA hillside, the first spill over the 70% lip). Frame contract as in scene.html:
+// window.READY, window.renderFrame(i), window.captureFrame(i). Every pixel is a function of (frame, seed).
+import * as THREE from 'three';
+import { LOOKS, buildLook, makeMaterial } from './looks.mjs';
+import { loadType, typeCheck, TYPE_FALLBACK } from './type.mjs';
+
+const q = new URLSearchParams(location.search);
+const W = +q.get('w') || 1920, H = +q.get('h') || 1080, SEED = +q.get('seed') || 11;
+const look = LOOKS[q.get('look') || 'kesit-cizimi'];
+const FPS = look.render.fps, DURATION = 9, FRAMES = Math.round(FPS * DURATION);
+const INK = look.ink;
+const [PAPER, SAGE, EARTH, CLAY, WATER] = look.palette;
+
+const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H, false);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(PAPER);
+const camera = new THREE.PerspectiveCamera(24, W / H, 0.1, 200);
+
+// seeded random
+let rs = SEED * 9301 + 49297;
+const rnd = () => { rs = (rs * 9301 + 49297) % 233280; return rs / 233280; };
+
+// ---------------------------------------------------------------- textures drawn like a section drawing
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+// the cut face: earth with diagonal ink hatching and a club name engraved
+const cutFace = (label, shade) => canvasTex(1024, 512, (g, w, h) => {
+  g.fillStyle = shade; g.fillRect(0, 0, w, h);
+  g.strokeStyle = INK; g.globalAlpha = 0.55; g.lineWidth = 3;
+  for (let x = -h; x < w; x += 30) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + h, 0); g.stroke(); }
+  g.globalAlpha = 0.18; g.lineWidth = 2;                    // stones in the soil
+  for (let k = 0; k < 40; k++) { const x = (k * 137 % 1000) + 10, y = (k * 271 % 480) + 16, r = 6 + (k * 53 % 14);
+    g.beginPath(); g.ellipse(x, y, r * 1.5, r, 0, 0, Math.PI * 2); g.stroke(); }
+  g.globalAlpha = 1;
+  g.strokeStyle = INK; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
+  if (label) {
+    g.fillStyle = PAPER; g.fillRect(w / 2 - 300, 40, 600, 110);
+    g.strokeStyle = INK; g.lineWidth = 5; g.strokeRect(w / 2 - 300, 40, 600, 110);
+    g.fillStyle = INK; g.font = '700 66px ' + TYPE_FALLBACK.display; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(label, w / 2, 97);
+  }
+});
+// rice rows on top
+const riceTop = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = SAGE; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#6f7a4a'; g.lineWidth = 4;
+  for (let y = 18; y < h; y += 34) for (let x = 10 + (y % 68 ? 12 : 0); x < w; x += 24) {
+    g.beginPath(); g.moveTo(x, y + 10); g.lineTo(x - 4, y - 8); g.moveTo(x, y + 10); g.lineTo(x + 5, y - 7); g.stroke(); }
+});
+// water: one cool colour with drawn current lines (offset by time)
+const waterTex = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = WATER; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#d9ece9'; g.lineWidth = 5; g.lineCap = 'round';
+  for (let k = 0; k < 26; k++) { const x = (k * 97) % w, y = (k * 181) % h, l = 40 + (k * 31) % 70;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y); g.stroke(); }
+});
+waterTex.wrapS = waterTex.wrapT = THREE.RepeatWrapping;
+const fallTex = canvasTex(256, 512, (g, w, h) => {
+  g.fillStyle = WATER; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#d9ece9'; g.lineWidth = 6; g.lineCap = 'round';
+  for (let k = 0; k < 14; k++) { const x = 12 + (k * 53) % (w - 24), y = (k * 211) % h;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 60 + (k * 17) % 50); g.stroke(); }
+});
+fallTex.wrapS = fallTex.wrapT = THREE.RepeatWrapping;
+
+// ---------------------------------------------------------------- the hillside in section
+const X = look.light.exposure;
+const key = new THREE.DirectionalLight(0xfff4e0, look.light.intensity * X);
+key.position.set(-4, 14, 9); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 5;
+key.shadow.camera.left = -14; key.shadow.camera.right = 14; key.shadow.camera.top = 12; key.shadow.camera.bottom = -6;
+scene.add(key, new THREE.HemisphereLight(PAPER, EARTH, look.light.ambient * 2 * X));
+
+const table = new THREE.Mesh(new THREE.PlaneGeometry(80, 40), makeMaterial(look, new THREE.Color('#efe2cc')));
+table.rotation.x = -Math.PI / 2; table.receiveShadow = true; table.userData.noOutline = true; scene.add(table);
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(80, 30), new THREE.MeshBasicMaterial({ color: PAPER }));
+wall.position.set(0, 10, -8); wall.userData.noOutline = true; scene.add(wall);
+
+const STEP_W = 2.4, DEPTH = 4.2, N = 7, TOP0 = 6.2, DROP = 0.9, LIP = 0.62;
+const CLUBS = ['', 'NAPOLI', 'BOLOGNA', 'STRASBOURG', 'ASTON VILLA', '', ''];
+const FOCUS = 3;
+const xOf = (i) => -7.2 + i * STEP_W;
+const topOf = (i) => TOP0 - i * DROP;
+const terraces = [];
+for (let i = 0; i < N; i++) {
+  const h = topOf(i), x = xOf(i);
+  const shade = i === FOCUS ? '#b5875a' : (i % 2 ? '#a98055' : '#9c7a58');
+  const face = cutFace(CLUBS[i], shade);
+  const side = makeMaterial(look, new THREE.Color(shade));
+  const mats = [side, side, makeMaterial(look, new THREE.Color('#ffffff'), { map: riceTop }), side,
+    makeMaterial(look, new THREE.Color('#ffffff'), { map: face }), side];
+  const block = new THREE.Mesh(new THREE.BoxGeometry(STEP_W, h, DEPTH), mats);
+  block.position.set(x, h / 2, 0); block.castShadow = block.receiveShadow = true; scene.add(block);
+  // the lip (bund) on the downhill edge: the club's 70% line
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(0.22, LIP, DEPTH), makeMaterial(look, new THREE.Color(CLAY)));
+  lip.position.set(x + STEP_W / 2 - 0.11, h + LIP / 2, 0); lip.castShadow = true; scene.add(lip);
+  // water on the terrace: under the lip everywhere but the focus terrace
+  const wm = makeMaterial(look, new THREE.Color('#ffffff'), { map: waterTex });
+  const water = new THREE.Mesh(new THREE.BoxGeometry(STEP_W - 0.24, 1, DEPTH - 0.1), wm);
+  water.userData.noOutline = true; scene.add(water);
+  terraces.push({ i, h, x, water, wm });
+}
+// the waterfall over the focus lip down to the next terrace
+const fallMat = makeMaterial(look, new THREE.Color('#ffffff'), { map: fallTex, side: THREE.DoubleSide });
+const fx0 = xOf(FOCUS) + STEP_W / 2, fyTop = topOf(FOCUS) + LIP + 0.2, fyBot = topOf(FOCUS + 1) + 0.1;
+const band = new THREE.Shape();
+const outer = [], inner = [];
+for (let k = 0; k <= 20; k++) { const v = k / 20;
+  const x = fx0 + 0.05 + 0.75 * Math.sin(v * Math.PI * 0.5), y = fyTop - (fyTop - fyBot) * v;
+  outer.push([x + 0.06, y + 0.06]); inner.push([x - 0.22 * (1 - 0.5 * v), y - 0.05]); }
+band.moveTo(fx0 - 0.25, fyTop - 0.1); band.lineTo(fx0 - 0.25, fyTop + 0.02);
+for (const [x, y] of outer) band.lineTo(x, y);
+for (const [x, y] of inner.reverse()) band.lineTo(x, y);
+const fallGeo = new THREE.ExtrudeGeometry(band, { depth: DEPTH - 0.3, bevelEnabled: false, curveSegments: 4 });
+fallGeo.translate(0, 0, -(DEPTH - 0.3) / 2);
+const fall = new THREE.Mesh(fallGeo, fallMat); fall.userData.noOutline = true; scene.add(fall);
+fallTex.repeat.set(1.2, 1.2);
+// droplets: seeded, pure functions of t
+const drops = [];
+const dropGeo = new THREE.SphereGeometry(0.07, 10, 8), dropMat = makeMaterial(look, new THREE.Color(WATER));
+for (let k = 0; k < 26; k++) { const m = new THREE.Mesh(dropGeo, dropMat); m.userData = { ph: rnd(), z: (rnd() - 0.5) * (DEPTH - 0.6), vx: 0.6 + rnd() * 0.8, noOutline: true }; scene.add(m); drops.push(m); }
+
+// the sluice at the summit (left, cut off by frame edge in this shot but casting its post)
+const wood = makeMaterial(look, new THREE.Color('#5e4128'));
+for (const z of [-1.3, 1.3]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.28, 2.4, 0.28), wood); post.position.set(xOf(0) - 0.6, topOf(0) + 1.2, z); post.castShadow = true; scene.add(post); }
+
+// the bamboo clapper (shishi-odoshi) on terrace 5, tipping with the spill
+const bambooMat = makeMaterial(look, new THREE.Color('#b9a35a'));
+const clap = new THREE.Group();
+const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.2, 20, 1, true), bambooMat); tube.rotation.z = Math.PI / 2; clap.add(tube);
+for (const xx of [-0.4, 0.5]) { const node = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.035, 8, 20), bambooMat); node.rotation.y = Math.PI / 2; node.position.x = xx; clap.add(node); }
+const capEnd = new THREE.Mesh(new THREE.CircleGeometry(0.2, 20), bambooMat); capEnd.rotation.y = -Math.PI / 2; capEnd.position.x = -1.1; clap.add(capEnd);
+const pivotX = xOf(5) + 0.1, pivotY = topOf(5) + 0.95;
+clap.position.set(pivotX, pivotY, 1.2); clap.traverse((o) => { if (o.isMesh) o.castShadow = true; }); scene.add(clap);
+for (const z of [0.85, 1.55]) { const s = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.0, 0.12), wood); s.position.set(pivotX, topOf(5) + 0.5, z); s.castShadow = true; scene.add(s); }
+const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32, 0), makeMaterial(look, new THREE.Color('#8d8576')));
+stone.position.set(pivotX + 1.05, topOf(5) + 0.2, 1.2); stone.scale.set(1.3, 0.7, 1); stone.castShadow = true; scene.add(stone);
+
+// ---------------------------------------------------------------- time
+const ease = (u) => u * u * (3 - 2 * u);
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+let T = 0;
+const setTime = (t) => {
+  T = t;
+  // camera: a whip pan arriving at 0.5 s, then a slow settle toward the spill (moving from frame 0)
+  const a = clamp01(t / 0.5), whip = 1 - Math.pow(1 - a, 3);
+  const cx = THREE.MathUtils.lerp(-6.5, 1.0, whip) + 0.25 * ease(clamp01((t - 0.5) / 8.5));
+  camera.position.set(cx, 5.4, 21 - 0.8 * ease(clamp01((t - 0.5) / 8.5)));
+  camera.lookAt(cx, 3.6, 0);
+  // water levels: the focus terrace above its lip, the others below
+  for (const tr of terraces) {
+    const over = tr.i === FOCUS;
+    const lvl = over ? LIP + 0.2 + 0.03 * Math.sin(t * 5) : LIP * (0.3 + 0.08 * Math.sin(tr.i * 1.7));
+    tr.water.scale.y = lvl; tr.water.position.set(tr.x - 0.12, tr.h + lvl / 2, 0);
+    tr.wm.map.offset.set(-t * 0.18, 0);
+  }
+  const x0 = fx0, yTop = fyTop, yBot = fyBot;
+  fallTex.offset.set(0, t * 1.4);
+  // droplets thrown off the fall
+  drops.forEach((m, k) => { const u = (t * 0.9 + m.userData.ph) % 1;
+    m.position.set(x0 + 0.3 + m.userData.vx * u, yTop - 0.2 - (yTop - yBot + 0.3) * u * u, m.userData.z); m.visible = u < 0.95; });
+  // the clapper: fills, then tips at 1.0 s with an overshoot and settles back by 3 s
+  const tip = t < 1.0 ? -0.18 + 0.1 * ease(clamp01(t / 1.0)) :
+    0.42 * Math.exp(-(t - 1.0) * 1.6) * Math.cos((t - 1.0) * 4.2) + (-0.18) * (1 - Math.exp(-(t - 1.0) * 1.2));
+  clap.rotation.z = tip;
+};
+
+// ---------------------------------------------------------------- ink annotations (motion design layer, 2D)
+const TYPE = { lang: 'tr', roles: {"display": {"family": "IBM Plex Serif", "pkg": "ibm-plex-serif", "version": "5.3.0", "cap": 0.698, "weights": [400, 600, 700]}, "text": {"family": "IBM Plex Sans", "pkg": "ibm-plex-sans", "version": "5.3.0", "cap": 0.698, "variable": "standard", "varVersion": "5.3.0", "axes": {"wdth": [75.0, 100.0, 100.0], "wght": [100.0, 700.0, 400.0]}}, "mono": {"family": "IBM Plex Mono", "pkg": "ibm-plex-mono", "version": "5.3.0", "cap": 0.698, "weights": [400, 500]}},
+  check: { strings: { display: ['Strasbourg 13 m€', '+12 m€ koşullu', 'Her kurum suyu başka bir şekille tutar', 'İĞŞÇÖÜ ığşçöü'], text: ['aşım', 'Oran · Vergi · Çit'], mono: ['%70', '9.006.596.835 TL', '15 × 362.579 €'] }, sizes: { text: 0.048 } } };
+const fontOf = (role) => (TYPE.roles[role] ? `"${TYPE.roles[role].family}", ${TYPE_FALLBACK[role]}` : TYPE_FALLBACK[role]);
+const v3 = new THREE.Vector3();
+const toScreen = (x, y, z) => { v3.set(x, y, z).project(camera); return [(v3.x + 1) / 2 * W, (1 - v3.y) / 2 * H]; };
+const S = H / 1080;
+function arrowHead(g, x, y, ang) { g.beginPath(); g.moveTo(x, y); g.lineTo(x - 14 * S * Math.cos(ang - 0.4), y - 14 * S * Math.sin(ang - 0.4));
+  g.moveTo(x, y); g.lineTo(x - 14 * S * Math.cos(ang + 0.4), y - 14 * S * Math.sin(ang + 0.4)); g.stroke(); }
+function dimV(g, x, y0, y1, label, prog, side = -1) {         // a vertical dimension line that draws itself
+  const yE = y0 + (y1 - y0) * prog;
+  g.beginPath(); g.moveTo(x - 10 * S, y0); g.lineTo(x + 10 * S, y0); g.moveTo(x, y0); g.lineTo(x, yE); g.stroke();
+  if (prog >= 1) { g.beginPath(); g.moveTo(x - 10 * S, y1); g.lineTo(x + 10 * S, y1); g.stroke();
+    arrowHead(g, x, y1, Math.atan2(y1 - y0, 0)); arrowHead(g, x, y0, Math.atan2(y0 - y1, 0)); }
+  if (label && prog > 0.6) { g.globalAlpha = clamp01((prog - 0.6) / 0.4); g.textAlign = side < 0 ? 'right' : 'left'; g.textBaseline = 'middle';
+    g.fillText(label, x + side * 18 * S, (y0 + y1) / 2); g.globalAlpha = 1; }
+}
+function card(g, text, x, y, alpha) {
+  if (alpha <= 0) return;
+  g.save(); g.globalAlpha = alpha; g.font = `600 ${56 * S}px ${fontOf('display')}`;
+  const w = g.measureText(text).width + 40 * S, h = 70 * S;
+  g.fillStyle = PAPER; g.fillRect(x, y - h / 2, w, h); g.lineWidth = 3 * S; g.strokeStyle = INK; g.strokeRect(x, y - h / 2, w, h);
+  g.fillStyle = INK; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(text, x + 20 * S, y + 2 * S); g.restore();
+}
+function annotate(g, t) {
+  g.save(); g.strokeStyle = INK; g.fillStyle = INK; g.lineWidth = 3 * S; g.lineCap = 'round';
+  g.font = `700 ${60 * S}px ${fontOf("text")}`;
+  // the club's 70% line: a dashed ink line across the terrace at the lip, drawn on from the left
+  const yL = topOf(FOCUS) + LIP, z = DEPTH / 2 + 0.05;
+  const [lx0, ly] = toScreen(xOf(FOCUS) - STEP_W / 2 + 0.05, yL, z), [lx1] = toScreen(xOf(FOCUS) + STEP_W / 2, yL, z);
+  const pr = clamp01((t - 0.3) / 0.6);
+  g.setLineDash([16 * S, 10 * S]); g.lineWidth = 4 * S;
+  g.beginPath(); g.moveTo(lx0, ly); g.lineTo(lx0 + (lx1 - lx0) * pr, ly); g.stroke(); g.setLineDash([]);
+  if (pr > 0.6) { g.globalAlpha = clamp01((pr - 0.6) / 0.4);
+    g.font = `500 ${52 * S}px ${fontOf('mono')}`; const tw = g.measureText('%70').width + 24 * S, tx = lx0 + 14 * S, ty = ly + 44 * S;
+    g.fillStyle = PAPER; g.fillRect(tx, ty - 32 * S, tw, 60 * S); g.lineWidth = 3 * S; g.strokeRect(tx, ty - 32 * S, tw, 60 * S);
+    g.fillStyle = INK; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('%70', tx + 12 * S, ty); g.globalAlpha = 1; }
+  // the excess: a red bracket from the line to the water's top, just inside the lip
+  g.strokeStyle = '#9b3b22'; g.fillStyle = '#9b3b22'; g.lineWidth = 3 * S;
+  const [ax] = toScreen(xOf(FOCUS) + STEP_W / 2 - 0.55, yL, z), [, ay2] = toScreen(0, yL + 0.2, z);
+  dimV(g, ax, ly, ay2, '', clamp01((t - 1.0) / 0.4), -1);
+  if (t > 1.2) { g.globalAlpha = clamp01((t - 1.2) / 0.4); g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText('aşım', ax - 16 * S, ay2 - 2 * S); g.globalAlpha = 1; }
+  g.restore();
+  // the shot's cards (SCRIPT.md: Strasbourg 13 m€ at 2.5 s, +12 m€ koşullu at 5.5 s), at the spill
+  const [fx, fy] = toScreen(xOf(FOCUS + 1) + 0.2, topOf(FOCUS) + 2.0, DEPTH / 2);
+  const inOut = (a, b) => clamp01((t - a) / 0.25) * clamp01((b - t) / 0.25);
+  const [sx, sy] = toScreen(xOf(FOCUS) + STEP_W / 2 + 0.5, topOf(FOCUS) + LIP + 0.1, DEPTH / 2);
+  const la = Math.max(inOut(2.5, 5.5), inOut(5.5, 8.5));
+  if (la > 0) { g.save(); g.globalAlpha = la; g.strokeStyle = INK; g.lineWidth = 3 * S; g.beginPath(); g.moveTo(fx, fy); g.lineTo(sx + 30 * S, sy - 20 * S); g.stroke();
+    g.beginPath(); g.arc(sx + 30 * S, sy - 20 * S, 6 * S, 0, Math.PI * 2); g.fill(); g.restore(); }
+  card(g, 'Strasbourg 13 m€', fx, fy, inOut(2.5, 5.5));
+  card(g, '+12 m€ koşullu', fx, fy, inOut(5.5, 8.5));
+}
+
+// ---------------------------------------------------------------- render
+const lk = buildLook({ renderer, scene, camera, look, fps: FPS, seed: SEED, setTime });
+const out = document.createElement('canvas'); out.width = W; out.height = H; document.body.appendChild(out);
+const g2 = out.getContext('2d');
+window.renderFrame = (i) => { lk.render(i, i / FPS); g2.drawImage(renderer.domElement, 0, 0); annotate(g2, i / FPS); };
+window.captureFrame = (i, type = 'image/png', quality = 0.95) => { window.renderFrame(i); return out.toDataURL(type, quality); };
+window.READY = loadType(TYPE).then(() => document.fonts.ready).then(() => {
+  const qc = typeCheck(g2, TYPE, W, H, null);
+  if (qc.errors.length) throw new Error('type check: ' + qc.errors.join(' · '));
+  return { frames: FRAMES, fps: FPS, width: W, height: H, renderer: 'three.js r' + THREE.REVISION, qc: qc.warnings };
+});
+if (!q.get('capture')) { let f = 0; const loop = () => { window.renderFrame(f); f = (f + 1) % FRAMES; requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+</script>
+</body>
+</html>

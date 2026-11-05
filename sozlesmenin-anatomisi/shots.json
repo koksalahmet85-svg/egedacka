@@ -1,0 +1,1409 @@
+{
+ "title": "Teraslar (Sözleşmenin Anatomisi)",
+ "version": 1,
+ "fps": 24,
+ "width": 1920,
+ "height": 1080,
+ "duration_frames": 5136,
+ "seed": 5051,
+ "look": "custom: Kesit Çizimi",
+ "shots": [
+  {
+   "id": "S01",
+   "start": 0,
+   "end": 156,
+   "location": "summit",
+   "description": "the wooden sluice at the top of the cut-away hillside, cream paper behind",
+   "action": "the sluice lifts and water bursts onto the first terrace from frame 1",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      6.5
+     ],
+     "read": "the sluice lifts and water bursts onto the first terrace from frame 1"
+    }
+   ],
+   "camera": {
+    "size": "CU",
+    "angle": "eye",
+    "lens_mm": 50,
+    "move": {
+     "line": "crane down, 6.5 s, medium ease-in-out, 6 s, follows the water from the sluice to the first terrace",
+     "type": "crane-down",
+     "speed": "medium",
+     "moving_at_start": true
+    }
+   },
+   "hook": "motion from frame 1: the sluice lifts and water bursts",
+   "action_from_frame_1": true,
+   "sound": "sluice creak and splash from frame 1",
+   "transition": "cut",
+   "status": "planned",
+   "motif": true,
+   "vo": [
+    {
+     "id": "VO1",
+     "at": 2.5,
+     "text": "Bir oyuncu imza attığında, kulüpte bir kapak açılır."
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S02",
+   "start": 156,
+   "end": 324,
+   "location": "upper terraces",
+   "description": "the water stream reaching the second terrace and settling into a steady flow",
+   "action": "the steady stream fills a carved channel",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      7.0
+     ],
+     "read": "the steady stream fills a carved channel"
+    }
+   ],
+   "camera": {
+    "size": "MS",
+    "angle": "side",
+    "lens_mm": 35,
+    "move": {
+     "line": "truck right with the stream, 7 s, slow ease-in-out, slow",
+     "type": "truck",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "steady trickle",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO2",
+     "at": 0.0,
+     "text": "Para akmaya başlar."
+    },
+    {
+     "id": "VO3",
+     "at": 2.5,
+     "text": "Her ay aynı hızla akan kısım: sabit maaş."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      2.5,
+      5.5
+     ],
+     "text": "sabit maaş"
+    }
+   ]
+  },
+  {
+   "id": "S03",
+   "start": 324,
+   "end": 432,
+   "location": "upper terraces",
+   "description": "a second channel where water arrives in pulses",
+   "action": "pulses surge on a beat and fall back",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      4.5
+     ],
+     "read": "pulses surge on a beat and fall back"
+    }
+   ],
+   "camera": {
+    "size": "ECU",
+    "angle": "eye",
+    "lens_mm": 85,
+    "move": {
+     "line": "locked-off hold on the channel lip, 4.5 s, slow ease-in-out, on the subject",
+     "type": "static",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "wave surges, one marimba hit per pulse",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO4",
+     "at": 0.0,
+     "text": "Gol ve galibiyetle gelen dalgalar: bonuslar."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      3
+     ],
+     "text": "bonus"
+    }
+   ]
+  },
+  {
+   "id": "S04",
+   "start": 432,
+   "end": 600,
+   "location": "upper terraces",
+   "description": "a drawn wooden bucket tips once and empties into the top terrace",
+   "action": "the bucket tips and pours",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      7
+     ],
+     "read": "the bucket tips and pours"
+    }
+   ],
+   "camera": {
+    "size": "CU",
+    "angle": "high",
+    "lens_mm": 50,
+    "move": {
+     "line": "tilt down with the falling water, 7 s, medium ease-in-out, medium",
+     "type": "tilt",
+     "speed": "medium",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "one heavy pour",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO5",
+     "at": 0.0,
+     "text": "İmzada bir kerede dökülen kova: imza parası."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      3
+     ],
+     "text": "imza parası"
+    }
+   ]
+  },
+  {
+   "id": "S05",
+   "start": 600,
+   "end": 816,
+   "location": "whole hillside",
+   "description": "the whole hillside in section: many sluices pouring at once",
+   "action": "water runs down the terraces from every contract",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      9
+     ],
+     "read": "water runs down the terraces from every contract"
+    }
+   ],
+   "camera": {
+    "size": "WS",
+    "angle": "frontal",
+    "lens_mm": 35,
+    "move": {
+     "line": "pull-back reveal from one sluice to the whole section, 9 s, slow ease-in-out, slow",
+     "type": "pull-back",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "many trickles; the bamboo clapper starts filling",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO6",
+     "at": 0.0,
+     "text": "Kadrodaki her sözleşme bu yamaca su döker."
+    },
+    {
+     "id": "VO7",
+     "at": 4.5,
+     "text": "Soru şu: su nerede durmak zorunda?"
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S06",
+   "start": 816,
+   "end": 960,
+   "location": "foot of the hill",
+   "description": "a dashed ink line draws itself across the slope and erases",
+   "action": "the question line draws and erases",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      6
+     ],
+     "read": "the question line draws and erases"
+    }
+   ],
+   "camera": {
+    "size": "MS",
+    "angle": "frontal",
+    "lens_mm": 50,
+    "move": {
+     "line": "locked-off hold, 6 s, slow ease-in-out, on the subject",
+     "type": "static",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "pencil scratch",
+   "transition": "wipe",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO8",
+     "at": 0.0,
+     "text": "Avrupa'da üç kurum bu soruya üç ayrı şekil verdi."
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S07",
+   "start": 960,
+   "end": 1200,
+   "location": "UEFA hillside, catchment",
+   "description": "rain falls on a catchment basin at the top; a side spring joins it",
+   "action": "rain fills the basin; the spring (player sales) adds to it",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      10
+     ],
+     "read": "rain fills the basin; the spring (player sales) adds to it"
+    }
+   ],
+   "camera": {
+    "size": "WS",
+    "angle": "high",
+    "lens_mm": 28,
+    "move": {
+     "line": "crane down from the clouds to the basin, 10 s, slow ease-in-out, slow",
+     "type": "crane-down",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "rain on paper, a spring",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO9",
+     "at": 1.0,
+     "text": "UEFA önce yamaca yağan yağmuru ölçer: kulübün geliri."
+    },
+    {
+     "id": "VO10",
+     "at": 5.5,
+     "text": "Oyuncu satışından gelen kâr da bu havzaya akar."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      2.5
+     ],
+     "text": "UEFA"
+    }
+   ]
+  },
+  {
+   "id": "S08",
+   "start": 1200,
+   "end": 1344,
+   "location": "UEFA hillside, terraces",
+   "description": "the water spent down the terraces, labels drawing on: maaş, amortisman, menajer",
+   "action": "three labels ink themselves onto three streams",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      6
+     ],
+     "read": "three labels ink themselves onto three streams"
+    }
+   ],
+   "camera": {
+    "size": "MCU",
+    "angle": "side",
+    "lens_mm": 50,
+    "move": {
+     "line": "truck left across the labels, 6 s, medium ease-in-out, medium",
+     "type": "truck",
+     "speed": "medium",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "three small knocks",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO11",
+     "at": 0.0,
+     "text": "Sonra sözleşmelerin döktüğü suyu: kadro maliyeti."
+    },
+    {
+     "id": "VO12",
+     "at": 3.0,
+     "text": "Maaşlar, bonservis amortismanı, menajer ücretleri."
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S09",
+   "start": 1344,
+   "end": 1536,
+   "location": "UEFA hillside, the line",
+   "description": "a 70% line carved into the slope as a dimension line from the basin",
+   "action": "the line drops 90, 80, 70 with year marks",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      8
+     ],
+     "read": "the line drops 90, 80, 70 with year marks"
+    }
+   ],
+   "camera": {
+    "size": "MS",
+    "angle": "frontal",
+    "lens_mm": 50,
+    "move": {
+     "line": "tilt down along the dimension line, 8 s, slow ease-in-out, slow",
+     "type": "tilt",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "three stamp knocks",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO13",
+     "at": 0.0,
+     "text": "Kural bir oran."
+    },
+    {
+     "id": "VO13b",
+     "at": 1.5,
+     "text": "Kadro maliyeti gelirin yüzde yetmişini geçemez."
+    },
+    {
+     "id": "VO14",
+     "at": 4.5,
+     "text": "Çizgi üç yılda indi: doksan, seksen, yetmiş."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      1.5,
+      7.5
+     ],
+     "text": "kadro maliyeti / gelir ≤ %70"
+    }
+   ]
+  },
+  {
+   "id": "S10",
+   "start": 1536,
+   "end": 1704,
+   "location": "UEFA hillside, the line",
+   "description": "the water level climbing to the line on one club's terrace",
+   "action": "water rises to the line; held breath",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      7
+     ],
+     "read": "water rises to the line; held breath"
+    }
+   ],
+   "camera": {
+    "size": "CU",
+    "angle": "eye",
+    "lens_mm": 85,
+    "move": {
+     "line": "dolly in, 7 s, slow ease-in-out, slow, onto the line",
+     "type": "push-in",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "water rises; 0.8 s silence at 69 s",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO15",
+     "at": 1.0,
+     "text": "2025, tam yüzde yetmişle ölçülen ilk yıl oldu."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      4.5
+     ],
+     "text": "2023 %90  2024 %80  2025 %70"
+    }
+   ]
+  },
+  {
+   "id": "S11",
+   "start": 1704,
+   "end": 1920,
+   "location": "UEFA hillside, the spill",
+   "description": "the terrace overflows the line; the bamboo clapper tips",
+   "action": "overflow; dimension lines measure the fine",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      9
+     ],
+     "read": "overflow; dimension lines measure the fine"
+    }
+   ],
+   "camera": {
+    "size": "ECU",
+    "angle": "eye",
+    "lens_mm": 100,
+    "move": {
+     "line": "whip pan to the clapper, 9 s, fast ease-in-out, then hold",
+     "type": "whip-pan",
+     "speed": "fast",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "first tok",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO16",
+     "at": 0.0,
+     "text": "Haziran 2026'da faturalar geldi."
+    },
+    {
+     "id": "VO17",
+     "at": 2.5,
+     "text": "Strasbourg çizgiyi aştı: 13 milyon avro ceza."
+    },
+    {
+     "id": "VO18",
+     "at": 5.0,
+     "text": "Harcamayı kısmazsa 12 milyon daha."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      2.5,
+      5.5
+     ],
+     "text": "Strasbourg 13 m€"
+    },
+    {
+     "t": [
+      5.5,
+      8.5
+     ],
+     "text": "+12 m€ koşullu"
+    }
+   ]
+  },
+  {
+   "id": "S12",
+   "start": 1920,
+   "end": 2088,
+   "location": "UEFA hillside, the spill",
+   "description": "a second overflowing terrace; its gate narrows",
+   "action": "the terrace's gate narrows (List A)",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      7
+     ],
+     "read": "the terrace's gate narrows (List A)"
+    }
+   ],
+   "camera": {
+    "size": "MCU",
+    "angle": "high",
+    "lens_mm": 50,
+    "move": {
+     "line": "crane down onto the narrowing gate, 7 s, medium ease-in-out, medium",
+     "type": "crane-down",
+     "speed": "medium",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "wood squeeze",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO19",
+     "at": -1.5,
+     "text": "Aston Villa: 22,5 milyon avro."
+    },
+    {
+     "id": "VO20",
+     "at": 1.0,
+     "text": "İkisinin de Avrupa kadrosu daraltıldı."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      3.5
+     ],
+     "text": "Aston Villa 22,5 m€"
+    }
+   ]
+  },
+  {
+   "id": "S13",
+   "start": 2088,
+   "end": 2280,
+   "location": "UEFA hillside, the spring",
+   "description": "a spring of football profit refills the basin and the level drops under the line",
+   "action": "the level falls back under the line",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      8
+     ],
+     "read": "the level falls back under the line"
+    }
+   ],
+   "camera": {
+    "size": "WS",
+    "angle": "frontal",
+    "lens_mm": 35,
+    "move": {
+     "line": "locked-off hold, 8 s, slow ease-in-out, on the subject",
+     "type": "static",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "water calms",
+   "transition": "wipe",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO21",
+     "at": -3.5,
+     "text": "Kuralın bir kapısı var."
+    },
+    {
+     "id": "VO22",
+     "at": -1.0,
+     "text": "Futbol faaliyetinden kâr eden kulübün fazlası silinebilir."
+    },
+    {
+     "id": "VO22b",
+     "at": 3.0,
+     "text": "Bazı kulüpler çizgiyi aşıp ceza almadı."
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S14",
+   "start": 2280,
+   "end": 2472,
+   "location": "EuroLeague hillside, the wall",
+   "description": "a stone terrace wall built across the slope",
+   "action": "the wall rises course by course",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      8
+     ],
+     "read": "the wall rises course by course"
+    }
+   ],
+   "camera": {
+    "size": "MS",
+    "angle": "side",
+    "lens_mm": 35,
+    "move": {
+     "line": "crane up over the wall, 8 s, medium ease-in-out, medium",
+     "type": "crane-up",
+     "speed": "medium",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "stone knocks",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO23",
+     "at": 1.0,
+     "text": "EuroLeague ise çizgi yerine duvar örer."
+    },
+    {
+     "id": "VO24",
+     "at": 4.5,
+     "text": "Duvarın adı: temel ücret seviyesi."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      2.5
+     ],
+     "text": "EUROLEAGUE"
+    }
+   ]
+  },
+  {
+   "id": "S15",
+   "start": 2472,
+   "end": 2616,
+   "location": "EuroLeague hillside, the wall",
+   "description": "three tall stones standing apart, outside the count",
+   "action": "three stones are lifted out of the measure",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      6
+     ],
+     "read": "three stones are lifted out of the measure"
+    }
+   ],
+   "camera": {
+    "size": "CU",
+    "angle": "low",
+    "lens_mm": 50,
+    "move": {
+     "line": "truck along the three stones, 6 s, slow ease-in-out, slow",
+     "type": "truck",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "a knock per stone",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO25",
+     "at": 0.0,
+     "text": "En pahalı üç oyuncu hesaba girmez: çapalar."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      3
+     ],
+     "text": "3 çapa oyuncu"
+    }
+   ]
+  },
+  {
+   "id": "S16",
+   "start": 2616,
+   "end": 2832,
+   "location": "EuroLeague hillside, the overflow",
+   "description": "water passes the wall and part of it lifts as vapour",
+   "action": "overflow turns to vapour",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      9
+     ],
+     "read": "overflow turns to vapour"
+    }
+   ],
+   "camera": {
+    "size": "MCU",
+    "angle": "eye",
+    "lens_mm": 50,
+    "move": {
+     "line": "tilt up with the vapour, 9 s, slow ease-in-out, slow",
+     "type": "tilt",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "vapour hiss",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO26",
+     "at": 0.0,
+     "text": "Su duvarı aşarsa, fazlanın bir kısmı vergiye dönüşür."
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S17",
+   "start": 2832,
+   "end": 3048,
+   "location": "EuroLeague hillside, Olympiacos terrace",
+   "description": "one terrace's spill measured, a counter splits it in half",
+   "action": "606.580 splits, half rises",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      9
+     ],
+     "read": "606.580 splits, half rises"
+    }
+   ],
+   "camera": {
+    "size": "ECU",
+    "angle": "frontal",
+    "lens_mm": 85,
+    "move": {
+     "line": "dolly in on the counter, 9 s, slow ease-in-out, slow",
+     "type": "push-in",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "counter ticks",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO27",
+     "at": 0.0,
+     "text": "Olympiacos sınırı 606.580 avro aştı."
+    },
+    {
+     "id": "VO28",
+     "at": 4.0,
+     "text": "Tam yarısını ödedi: 303.290 avro."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      6
+     ],
+     "text": "Olympiacos +606.580 € → 303.290 €"
+    }
+   ]
+  },
+  {
+   "id": "S18",
+   "start": 3048,
+   "end": 3264,
+   "location": "EuroLeague sky",
+   "description": "four columns of vapour gather into one cloud",
+   "action": "the cloud grows from four spills",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      9
+     ],
+     "read": "the cloud grows from four spills"
+    }
+   ],
+   "camera": {
+    "size": "WS",
+    "angle": "low",
+    "lens_mm": 28,
+    "move": {
+     "line": "pull-back reveal to the four terraces and the cloud, 9 s, medium ease-in-out, medium",
+     "type": "pull-back",
+     "speed": "medium",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "wind builds, one held note",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO29",
+     "at": 0.0,
+     "text": "2025-26 sezonunda dört kulüp duvarı aştı."
+    },
+    {
+     "id": "VO30",
+     "at": 4.0,
+     "text": "Bulutta biriken: 5.438.684 avro."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      4,
+      8
+     ],
+     "text": "5.438.684 €"
+    }
+   ]
+  },
+  {
+   "id": "S19",
+   "start": 3264,
+   "end": 3576,
+   "location": "EuroLeague hillside, 15 terraces",
+   "description": "the cloud rains equally on fifteen terraces",
+   "action": "15 equal drops land one by one",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      13
+     ],
+     "read": "15 equal drops land one by one"
+    }
+   ],
+   "camera": {
+    "size": "EWS",
+    "angle": "high",
+    "lens_mm": 24,
+    "move": {
+     "line": "pan across the fifteen terraces, 13 s, slow ease-in-out, slow",
+     "type": "pan",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "15 drops in a rising pattern, bed drops away",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO31",
+     "at": 0.0,
+     "text": "Bulut, kurala uyan on beş kulübe yağdı."
+    },
+    {
+     "id": "VO32",
+     "at": 4.0,
+     "text": "Her birine eşit pay: 362.579 avro."
+    },
+    {
+     "id": "VO33",
+     "at": 9.0,
+     "text": "Duvarı aşan, rakibini sular."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      4,
+      9
+     ],
+     "text": "15 × 362.579 €"
+    }
+   ]
+  },
+  {
+   "id": "S20",
+   "start": 3576,
+   "end": 3840,
+   "location": "EuroLeague hillside, a dry terrace",
+   "description": "a cracked dry terrace below the floor line; a drawn bucket waters its own plants",
+   "action": "the bucket pours into the dry terrace",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      11
+     ],
+     "read": "the bucket pours into the dry terrace"
+    }
+   ],
+   "camera": {
+    "size": "CU",
+    "angle": "eye",
+    "lens_mm": 50,
+    "move": {
+     "line": "dolly out from the cracks, 11 s, slow ease-in-out, slow",
+     "type": "dolly-out",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "dry scrape, then water",
+   "transition": "wipe",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO34",
+     "at": 0.5,
+     "text": "Duvarın bir de alt sınırı var."
+    },
+    {
+     "id": "VO35",
+     "at": 3.5,
+     "text": "ASVEL ise bu sınırın altında kaldı."
+    },
+    {
+     "id": "VO36",
+     "at": 6.5,
+     "text": "Farkı kendi oyuncularına ödemek zorunda kaldı."
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S21",
+   "start": 3840,
+   "end": 4056,
+   "location": "TFF hillside, plots",
+   "description": "fenced plots on a warm-lit slope; fences rise one by one",
+   "action": "the tallest fence rises first",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      9
+     ],
+     "read": "the tallest fence rises first"
+    }
+   ],
+   "camera": {
+    "size": "WS",
+    "angle": "frontal",
+    "lens_mm": 35,
+    "move": {
+     "line": "truck right along the fences, 9 s, medium ease-in-out, medium",
+     "type": "truck",
+     "speed": "medium",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "posts knocked in",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO37",
+     "at": 1.0,
+     "text": "Türkiye'de TFF her kulübe ayrı bir çit çizer."
+    },
+    {
+     "id": "VO38",
+     "at": 5.5,
+     "text": "2026-27 limitleri haziranda açıklandı."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      2.5
+     ],
+     "text": "TFF"
+    }
+   ]
+  },
+  {
+   "id": "S22",
+   "start": 4056,
+   "end": 4224,
+   "location": "TFF hillside, the tallest fence",
+   "description": "the tallest fence, engraved Galatasaray",
+   "action": "dimension line measures it",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      7
+     ],
+     "read": "dimension line measures it"
+    }
+   ],
+   "camera": {
+    "size": "MCU",
+    "angle": "low",
+    "lens_mm": 50,
+    "move": {
+     "line": "crane up the fence, 7 s, slow ease-in-out, slow",
+     "type": "crane-up",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "high wood knock",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO39",
+     "at": 0.0,
+     "text": "Galatasaray: 9 milyar lira."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      3
+     ],
+     "text": "Galatasaray 9.006.596.835 TL"
+    }
+   ]
+  },
+  {
+   "id": "S23",
+   "start": 4224,
+   "end": 4332,
+   "location": "TFF hillside, two fences",
+   "description": "two shorter fences in turn",
+   "action": "measure ticks down",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      4.5
+     ],
+     "read": "measure ticks down"
+    }
+   ],
+   "camera": {
+    "size": "MS",
+    "angle": "side",
+    "lens_mm": 50,
+    "move": {
+     "line": "pan left, 4.5 s, medium ease-in-out, medium",
+     "type": "pan",
+     "speed": "medium",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "two lower knocks",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO40",
+     "at": -4.0,
+     "text": "Fenerbahçe: 6,3 milyar."
+    },
+    {
+     "id": "VO41",
+     "at": -1.5,
+     "text": "Beşiktaş: 4,1 milyar."
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S24",
+   "start": 4332,
+   "end": 4452,
+   "location": "TFF hillside, the lowest fence",
+   "description": "the lowest fence, engraved Alanyaspor",
+   "action": "dimension line, short",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      5.0
+     ],
+     "read": "dimension line, short"
+    }
+   ],
+   "camera": {
+    "size": "CU",
+    "angle": "high",
+    "lens_mm": 50,
+    "move": {
+     "line": "tilt down to the fence top, 5 s, slow ease-in-out, slow",
+     "type": "tilt",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "low knock",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO42",
+     "at": -3.5,
+     "text": "En alçak çit Alanyaspor'un: 571 milyon."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      0,
+      4
+     ],
+     "text": "Alanyaspor 571.608.883 TL"
+    }
+   ]
+  },
+  {
+   "id": "S25",
+   "start": 4452,
+   "end": 4584,
+   "location": "TFF hillside, plots",
+   "description": "the fence heights set by each plot's own inflow and outflow channels",
+   "action": "channels in and out of each plot glow",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      5.5
+     ],
+     "read": "channels in and out of each plot glow"
+    }
+   ],
+   "camera": {
+    "size": "WS",
+    "angle": "high",
+    "lens_mm": 28,
+    "move": {
+     "line": "crane down over the plots, 5.5 s, medium ease-in-out, medium",
+     "type": "crane-down",
+     "speed": "medium",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "water in, water out",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO43",
+     "at": -5.0,
+     "text": "Çitin boyu kulübün kendi gelir ve giderinden hesaplanır."
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S26",
+   "start": 4584,
+   "end": 4776,
+   "location": "TFF hillside, a gate",
+   "description": "a small gate in a fence swings open, the fence grows a little",
+   "action": "the gate opens; the fence rises one notch",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      8
+     ],
+     "read": "the gate opens; the fence rises one notch"
+    }
+   ],
+   "camera": {
+    "size": "ECU",
+    "angle": "eye",
+    "lens_mm": 85,
+    "move": {
+     "line": "focus pull from latch to fence, 8 s, slow ease-in-out, slow",
+     "type": "rack-focus",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "latch click",
+   "transition": "wipe",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO44",
+     "at": -5.5,
+     "text": "Çitte bir de kapı var."
+    },
+    {
+     "id": "VO45",
+     "at": -2.5,
+     "text": "Kulüp gerekçe gösterirse, kurul limiti yükseltebilir."
+    }
+   ],
+   "text_on_screen": []
+  },
+  {
+   "id": "S27",
+   "start": 4776,
+   "end": 4968,
+   "location": "three hillsides",
+   "description": "the three hillsides side by side; one pour reaches all three",
+   "action": "water lands three ways",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      8
+     ],
+     "read": "water lands three ways"
+    }
+   ],
+   "camera": {
+    "size": "EWS",
+    "angle": "frontal",
+    "lens_mm": 24,
+    "move": {
+     "line": "pull-back reveal to the full diorama, 8 s, slow ease-in-out, slow",
+     "type": "pull-back",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "marimba, one note per hillside",
+   "transition": "cut",
+   "status": "planned",
+   "vo": [
+    {
+     "id": "VO46",
+     "at": 0.0,
+     "text": "Her kurum suyu başka bir şekille tutar."
+    },
+    {
+     "id": "VO47",
+     "at": 4.5,
+     "text": "Biri oranla, biri vergiyle, biri çitle."
+    }
+   ],
+   "text_on_screen": [
+    {
+     "t": [
+      4.5,
+      8
+     ],
+     "text": "Oran · Vergi · Çit"
+    }
+   ]
+  },
+  {
+   "id": "S28",
+   "start": 4968,
+   "end": 5136,
+   "location": "summit",
+   "description": "the first sluice from S01 closes; the clapper tips a last time",
+   "action": "the sluice closes",
+   "reads": [
+    {
+     "t": [
+      0.0,
+      7
+     ],
+     "read": "the sluice closes"
+    }
+   ],
+   "camera": {
+    "size": "CU",
+    "angle": "eye",
+    "lens_mm": 50,
+    "move": {
+     "line": "locked-off hold, 7 s, slow ease-in-out, on the sluice",
+     "type": "static",
+     "speed": "slow",
+     "moving_at_start": true
+    }
+   },
+   "hook": "",
+   "action_from_frame_1": true,
+   "sound": "last tok, 1 s silence",
+   "transition": "cut",
+   "status": "planned",
+   "motif": true,
+   "vo": [],
+   "text_on_screen": []
+  }
+ ]
+}

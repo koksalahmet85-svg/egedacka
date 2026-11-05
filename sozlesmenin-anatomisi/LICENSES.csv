@@ -1,0 +1,6 @@
+file,title,author,source_url,licence,licence_url,attribution_text,modifications,downloaded_at,used_in,notes
+https://cdn.jsdelivr.net/npm/three@0.186.1,three.js 0.186.1,three.js authors,https://github.com/mrdoob/three.js,MIT,https://github.com/mrdoob/three.js/blob/dev/LICENSE,three.js (MIT),none,,engine (only if engine/scene.html is used),software; loaded by import map
+https://cdn.jsdelivr.net/npm/postprocessing@6.39.5,postprocessing 6.39.5,Raoul van Rüschen (pmndrs),https://github.com/pmndrs/postprocessing,Zlib,https://github.com/pmndrs/postprocessing/blob/main/LICENSE.md,postprocessing (Zlib),none,,engine (only if engine/scene.html is used),software; loaded by import map
+https://github.com/IBM/plex,IBM Plex Serif 5.3.0,IBM,https://github.com/IBM/plex,OFL-1.1,https://github.com/IBM/plex/blob/master/LICENSE.txt,IBM Plex (OFL),none,2026-11-05,font display,font
+https://github.com/IBM/plex,IBM Plex Sans 5.3.0,IBM,https://github.com/IBM/plex,OFL-1.1,https://github.com/IBM/plex/blob/master/LICENSE.txt,IBM Plex (OFL),none,2026-11-05,font text,font
+https://github.com/IBM/plex,IBM Plex Mono 5.3.0,IBM,https://github.com/IBM/plex,OFL-1.1,https://github.com/IBM/plex/blob/master/LICENSE.txt,IBM Plex (OFL),none,2026-11-05,font mono,font

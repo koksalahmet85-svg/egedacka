@@ -1,0 +1,167 @@
+{
+ "title": "Her kurum suyu başka bir şekille tutar",
+ "pairings": [
+  {
+   "id": "major-terminal",
+   "why": "geometric mono display, clean sans text, code mono",
+   "setup": {
+    "display": {},
+    "text": {
+     "wght": 400
+    }
+   },
+   "card": null,
+   "roles": {
+    "display": {
+     "family": "Major Mono Display",
+     "pkg": "major-mono-display",
+     "version": "5.3.0",
+     "cap": 0.696,
+     "weights": [
+      400
+     ]
+    },
+    "text": {
+     "family": "Geist",
+     "pkg": "geist",
+     "version": "5.3.0",
+     "cap": 0.71,
+     "variable": "wght",
+     "varVersion": "5.3.0",
+     "axes": {
+      "wght": [
+       100.0,
+       900.0,
+       400.0
+      ]
+     }
+    },
+    "mono": {
+     "family": "JetBrains Mono",
+     "pkg": "jetbrains-mono",
+     "version": "5.3.0",
+     "cap": 0.73,
+     "variable": "wght",
+     "varVersion": "5.3.0",
+     "axes": {
+      "wght": [
+       100.0,
+       800.0,
+       400.0
+      ]
+     }
+    }
+   }
+  },
+  {
+   "id": "picture-book",
+   "why": "A round heavy serif title and the narrator's own marker hand for captions (INFM 40, BNCE seeded per glyph).",
+   "setup": {
+    "display": {
+     "wght": 400
+    },
+    "text": {
+     "wght": 500,
+     "axes": {
+      "INFM": 40,
+      "BNCE": 20
+     }
+    }
+   },
+   "card": null,
+   "roles": {
+    "display": {
+     "family": "Young Serif",
+     "pkg": "young-serif",
+     "version": "5.3.0",
+     "cap": 0.75,
+     "weights": [
+      400
+     ]
+    },
+    "text": {
+     "family": "Shantell Sans",
+     "pkg": "shantell-sans",
+     "version": "5.3.0",
+     "cap": 0.7,
+     "variable": "full",
+     "varVersion": "5.3.0",
+     "axes": {
+      "wght": [
+       300,
+       800
+      ],
+      "BNCE": [
+       -100,
+       100
+      ],
+      "INFM": [
+       0,
+       100
+      ],
+      "SPAC": [
+       0,
+       100
+      ]
+     },
+     "stops": [
+      {
+       "INFM": 40,
+       "BNCE": 20
+      }
+     ]
+    },
+    "mono": null
+   }
+  },
+  {
+   "id": "plex-system",
+   "why": "one superfamily: serif, sans and mono share proportions",
+   "setup": {},
+   "card": null,
+   "roles": {
+    "display": {
+     "family": "IBM Plex Serif",
+     "pkg": "ibm-plex-serif",
+     "version": "5.3.0",
+     "cap": 0.698,
+     "weights": [
+      400,
+      600,
+      700
+     ]
+    },
+    "text": {
+     "family": "IBM Plex Sans",
+     "pkg": "ibm-plex-sans",
+     "version": "5.3.0",
+     "cap": 0.698,
+     "variable": "standard",
+     "varVersion": "5.3.0",
+     "axes": {
+      "wdth": [
+       75.0,
+       100.0,
+       100.0
+      ],
+      "wght": [
+       100.0,
+       700.0,
+       400.0
+      ]
+     }
+    },
+    "mono": {
+     "family": "IBM Plex Mono",
+     "pkg": "ibm-plex-mono",
+     "version": "5.3.0",
+     "cap": 0.698,
+     "weights": [
+      400,
+      500
+     ]
+    }
+   }
+  }
+ ]
+}

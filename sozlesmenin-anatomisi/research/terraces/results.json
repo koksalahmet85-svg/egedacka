@@ -1,0 +1,66 @@
+{
+ "query": "rice terrace",
+ "type": "image",
+ "results": [
+  {
+   "source": "openverse",
+   "id": "d587da48-b524-4bd4-84f5-a4208cd3e18e",
+   "title": "Tegallantang Rice Terrace, Bali",
+   "creator": "kevinpoh",
+   "licence": "cc-by",
+   "page": "https://www.flickr.com/photos/7679455@N03/6893185423",
+   "file": "https://live.staticflickr.com/7070/6893185423_5d645f2f1f_b.jpg",
+   "thumb": "https://api.openverse.org/v1/images/d587da48-b524-4bd4-84f5-a4208cd3e18e/thumb/",
+   "type": "image",
+   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+   "attribution": "\"Tegallantang Rice Terrace, Bali\" by kevinpoh is licensed under CC BY 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/2.0/.",
+   "provider": "flickr",
+   "n": 1
+  },
+  {
+   "source": "openverse",
+   "id": "b6ccb2fe-ce85-441f-8131-45c0004161f0",
+   "title": "Rice Terraces in Sa Pa, Vietnam",
+   "creator": "Christopher Crouzet",
+   "licence": "cc-by",
+   "page": "https://www.flickr.com/photos/25338288@N05/23082778974",
+   "file": "https://live.staticflickr.com/5779/23082778974_b61009e626_b.jpg",
+   "thumb": "https://api.openverse.org/v1/images/b6ccb2fe-ce85-441f-8131-45c0004161f0/thumb/",
+   "type": "image",
+   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+   "attribution": "\"Rice Terraces in Sa Pa, Vietnam\" by Christopher Crouzet is licensed under CC BY 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/2.0/.",
+   "provider": "flickr",
+   "n": 2
+  },
+  {
+   "source": "openverse",
+   "id": "19fbe502-4fa7-475a-aa4f-bf62da592058",
+   "title": "Banaue rice terraces. Terrazas de arroz de Banaue.",
+   "creator": "Jon D\u00edez Supat",
+   "licence": "cc-by-sa",
+   "page": "https://www.flickr.com/photos/84651101@N00/3658198876",
+   "file": "https://live.staticflickr.com/3310/3658198876_3f88bf8e04_b.jpg",
+   "thumb": "https://api.openverse.org/v1/images/19fbe502-4fa7-475a-aa4f-bf62da592058/thumb/",
+   "type": "image",
+   "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+   "attribution": "\"Banaue rice terraces. Terrazas de arroz de Banaue.\" by Jon D\u00edez Supat is licensed under CC BY-SA 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/2.0/.",
+   "provider": "flickr",
+   "n": 3
+  },
+  {
+   "source": "openverse",
+   "id": "761e3b02-a29b-482c-aa9f-d9d2fe390df8",
+   "title": "Chinese Minorities in the Ling Ji Rice terraces",
+   "creator": "** Maurice **",
+   "licence": "cc-by",
+   "page": "https://www.flickr.com/photos/97044050@N00/1318283911",
+   "file": "https://live.staticflickr.com/1194/1318283911_7a7e75b4f5_b.jpg",
+   "thumb": "https://api.openverse.org/v1/images/761e3b02-a29b-482c-aa9f-d9d2fe390df8/thumb/",
+   "type": "image",
+   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+   "attribution": "\"Chinese Minorities in the Ling Ji Rice terraces\" by ** Maurice ** is licensed under CC BY 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/2.0/.",
+   "provider": "flickr",
+   "n": 4
+  }
+ ]
+}

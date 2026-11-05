@@ -1,0 +1,66 @@
+{
+ "query": "deer scarer bamboo",
+ "type": "image",
+ "results": [
+  {
+   "source": "openverse",
+   "id": "95cc5072-a987-4b3e-a007-ac880346e8ec",
+   "title": "Bird scarers",
+   "creator": "say_cheddar",
+   "licence": "cc-by",
+   "page": "https://www.flickr.com/photos/29271559@N02/3726225041",
+   "file": "https://live.staticflickr.com/3506/3726225041_34b76125cb_b.jpg",
+   "thumb": "https://api.openverse.org/v1/images/95cc5072-a987-4b3e-a007-ac880346e8ec/thumb/",
+   "type": "image",
+   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+   "attribution": "\"Bird scarers\" by say_cheddar is licensed under CC BY 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/2.0/.",
+   "provider": "flickr",
+   "n": 1
+  },
+  {
+   "source": "openverse",
+   "id": "f6d15a0f-a721-4c5a-8c87-0c0c28c1a638",
+   "title": "Gas gun bird scarer",
+   "creator": "unknown",
+   "licence": "cc-by-sa",
+   "page": "https://commons.wikimedia.org/w/index.php?curid=745853",
+   "file": "https://upload.wikimedia.org/wikipedia/commons/2/2d/Gas_gun_bird_scarer.jpg",
+   "thumb": "https://api.openverse.org/v1/images/f6d15a0f-a721-4c5a-8c87-0c0c28c1a638/thumb/",
+   "type": "image",
+   "licence_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+   "attribution": "\"Gas gun bird scarer\" is licensed under CC BY-SA 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/2.0/.",
+   "provider": "wikimedia",
+   "n": 2
+  },
+  {
+   "source": "openverse",
+   "id": "14def474-779e-4b0e-aa39-ba14eec4f0d8",
+   "title": "Bird Scarer",
+   "creator": "Gilgongo",
+   "licence": "cc-by",
+   "page": "https://www.flickr.com/photos/93207464@N00/530502189",
+   "file": "https://live.staticflickr.com/1289/530502189_6d1b73cd97_b.jpg",
+   "thumb": "https://api.openverse.org/v1/images/14def474-779e-4b0e-aa39-ba14eec4f0d8/thumb/",
+   "type": "image",
+   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+   "attribution": "\"Bird Scarer\" by Gilgongo is licensed under CC BY 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/2.0/.",
+   "provider": "flickr",
+   "n": 3
+  },
+  {
+   "source": "openverse",
+   "id": "8ee52817-6014-4250-b01c-a341e112eb5e",
+   "title": "Kangaroo scarer",
+   "creator": "tristanf",
+   "licence": "cc-by",
+   "page": "https://www.flickr.com/photos/89056504@N00/2367607944",
+   "file": "https://live.staticflickr.com/2252/2367607944_3dce214a3e_b.jpg",
+   "thumb": "https://api.openverse.org/v1/images/8ee52817-6014-4250-b01c-a341e112eb5e/thumb/",
+   "type": "image",
+   "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+   "attribution": "\"Kangaroo scarer\" by tristanf is licensed under CC BY 2.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/2.0/.",
+   "provider": "flickr",
+   "n": 4
+  }
+ ]
+}

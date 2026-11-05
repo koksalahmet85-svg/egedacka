@@ -1,0 +1,6 @@
+[capture] renderer: three.js r186
+[capture] qc: text: cap height 33 px < 40 px for phone viewing at 1920x1080
+[capture] page: 1920x1080, 216 frames @ 24 fps
+[capture] 1 old frames cleared (changed inputs, unverified cache, remote page or --fresh)
+[capture] done: 1 rendered, 0 skipped, 5.7 s total, 0.17 fps, 1 worker(s)
+[capture] frames: /home/user/Filmler/sozlesmenin-anatomisi/review/style-v1/%06d.png

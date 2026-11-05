@@ -1,0 +1,160 @@
+{
+ "deals": [
+  {
+   "category": "spark",
+   "seed": "2026-11-05:sozlesmenin-anatomisi#1",
+   "dealt": [
+    "s1",
+    "s2",
+    "s3"
+   ],
+   "redeal_reason": null,
+   "pick": "s2",
+   "reason": "terraced rice field + diorama: three spending rules as one physical hillside of water and walls",
+   "at": "2026-11-05T08:06",
+   "texts": {
+    "s1": "seed: Vallenato · place: a Kars cheese dairy · form: a page turn · medium: rotoscope · era: the 1920s · colour: forest green and cream",
+    "s2": "seed: Museum Island · place: a terraced rice field · form: a diorama · medium: comic book · era: the moon landing year · colour: autumn red and brown",
+    "s3": "seed: Rapa Nui National Park · place: a bowling alley · form: a video game level · medium: shadow puppets · era: the day after · engine: a door that opens onto the wrong place"
+   },
+   "seeds": {
+    "s1": {
+     "name": "Vallenato",
+     "fact": "musical tradition fusing cultural expressions of several origins in the Monteria Córdoba - Magdalena Grande area of Colombia – inscribed in the List of Intangible Heritage in Need of Urgent Safeguarding in 2015",
+     "link": "https://en.wikipedia.org/wiki/Vallenato",
+     "pool": "custom"
+    },
+    "s2": {
+     "name": "Museum Island",
+     "fact": "northern part of Spree Island in the Spree river in central Berlin, Germany",
+     "link": "https://en.wikipedia.org/wiki/Museum_Island",
+     "pool": "place"
+    },
+    "s3": {
+     "name": "Rapa Nui National Park",
+     "fact": "Chilean national park, in Easter Island, Chile",
+     "link": "https://en.wikipedia.org/wiki/Rapa_Nui_National_Park",
+     "pool": "place"
+    }
+   }
+  },
+  {
+   "category": "look",
+   "seed": "2026-11-05:sozlesmenin-anatomisi#1",
+   "dealt": [
+    "l1",
+    "l2",
+    "l3",
+    "l4",
+    "l5",
+    "l6"
+   ],
+   "redeal_reason": null,
+   "pick": "l6",
+   "reason": "Moebius clean lines carry the daylight diorama (A) and the section drawing (C); Khondji (l4) carries B",
+   "at": "2026-11-05T06:03",
+   "texts": {
+    "l1": "Fikret Mualla: quick Paris café colour",
+    "l2": "Cindy Sherman: staged personas, film-still pastiche",
+    "l3": "Yasujirō Ozu: low static camera, quiet interiors, pillow shots",
+    "l4": "Darius Khondji: dense colour, deep shadow, painterly",
+    "l5": "Robbie Ryan: grainy natural light, 16mm immediacy",
+    "l6": "Moebius: clean lines, vast alien deserts"
+   }
+  },
+  {
+   "category": "type",
+   "seed": "2026-11-05:sozlesmenin-anatomisi#1",
+   "dealt": [
+    "major-terminal",
+    "picture-book",
+    "plex-system"
+   ],
+   "weights": {
+    "major-terminal": 0.15,
+    "picture-book": 1.0,
+    "plex-system": 1.0
+   },
+   "look_families": [],
+   "filters": {
+    "purpose": "ad",
+    "look": "kesit-cizimi",
+    "mood": "meraklı net oyunbaz, ders anlatımı, teknik çizim",
+    "latin_only": false
+   },
+   "redeal_reason": null,
+   "pick": "plex-system",
+   "reason": "engineering-drawing lineage; Mono numerals for dimension lines; strong Turkish glyphs (user)",
+   "at": "2026-11-05T06:49"
+  }
+ ],
+ "taste": [
+  {
+   "at": "2026-11-05T06:50:59",
+   "project": "sozlesmenin-anatomisi",
+   "kind": "pairing",
+   "id": "major-terminal",
+   "verdict": "pass",
+   "families": [
+    "Major Mono Display",
+    "Geist",
+    "JetBrains Mono"
+   ],
+   "tags": [
+    "code",
+    "display",
+    "futuristic",
+    "geometric",
+    "mono",
+    "retro",
+    "sans",
+    "tech",
+    "technical"
+   ],
+   "reason": "engineering-drawing lineage; Mono numerals for dimension lines; strong Turkish glyphs (user)"
+  },
+  {
+   "at": "2026-11-05T06:50:59",
+   "project": "sozlesmenin-anatomisi",
+   "kind": "pairing",
+   "id": "picture-book",
+   "verdict": "pass",
+   "families": [
+    "Young Serif",
+    "Shantell Sans"
+   ],
+   "tags": [
+    "display",
+    "friendly",
+    "handmade",
+    "heavy",
+    "serif",
+    "warm"
+   ],
+   "reason": "engineering-drawing lineage; Mono numerals for dimension lines; strong Turkish glyphs (user)"
+  },
+  {
+   "at": "2026-11-05T06:50:59",
+   "project": "sozlesmenin-anatomisi",
+   "kind": "pairing",
+   "id": "plex-system",
+   "verdict": "like",
+   "families": [
+    "IBM Plex Serif",
+    "IBM Plex Sans",
+    "IBM Plex Mono"
+   ],
+   "tags": [
+    "grotesque",
+    "mono",
+    "neutral",
+    "sans",
+    "serif",
+    "slab-ish",
+    "superfamily",
+    "technical"
+   ],
+   "reason": "engineering-drawing lineage; Mono numerals for dimension lines; strong Turkish glyphs (user)"
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "query": "cross section drawing landscape",
+ "type": "image",
+ "results": [
+  {
+   "source": "aic",
+   "id": "100476",
+   "title": "Beach at Cabasson (Baigne-Cul)",
+   "creator": "Henri Edmond Cross (French, 1856\u20131910)",
+   "licence": "cc0",
+   "page": "https://www.artic.edu/artworks/100476",
+   "file": "https://www.artic.edu/iiif/2/16e53257-ade2-4f5d-3521-2bc9666bc4cf/full/3000,/0/default.jpg",
+   "thumb": "https://www.artic.edu/iiif/2/16e53257-ade2-4f5d-3521-2bc9666bc4cf/full/200,/0/default.jpg",
+   "type": "image",
+   "n": 1
+  },
+  {
+   "source": "aic",
+   "id": "59897",
+   "title": "Christ Carrying the Cross",
+   "creator": "Master of the Worcester Carrying of the Cross (active c. 140",
+   "licence": "cc0",
+   "page": "https://www.artic.edu/artworks/59897",
+   "file": "https://www.artic.edu/iiif/2/84899261-2add-0f0d-b7fa-eba017663d07/full/1774,/0/default.jpg",
+   "thumb": "https://www.artic.edu/iiif/2/84899261-2add-0f0d-b7fa-eba017663d07/full/200,/0/default.jpg",
+   "type": "image",
+   "n": 2
+  },
+  {
+   "source": "aic",
+   "id": "12586",
+   "title": "Les Champs \u00c9lys\u00e9es",
+   "creator": "Henri Edmond Cross",
+   "licence": "cc0",
+   "page": "https://www.artic.edu/artworks/12586",
+   "file": "https://www.artic.edu/iiif/2/fde07d7a-14cc-7c4a-fd8e-df8ff552011d/full/2895,/0/default.jpg",
+   "thumb": "https://www.artic.edu/iiif/2/fde07d7a-14cc-7c4a-fd8e-df8ff552011d/full/200,/0/default.jpg",
+   "type": "image",
+   "n": 3
+  },
+  {
+   "source": "aic",
+   "id": "23119",
+   "title": "Village Among the Trees",
+   "creator": "Unknown artist",
+   "licence": "cc0",
+   "page": "https://www.artic.edu/artworks/23119",
+   "file": "https://www.artic.edu/iiif/2/1e452e34-3a2b-0dca-35c3-c7236c612985/full/3000,/0/default.jpg",
+   "thumb": "https://www.artic.edu/iiif/2/1e452e34-3a2b-0dca-35c3-c7236c612985/full/200,/0/default.jpg",
+   "type": "image",
+   "n": 4
+  }
+ ]
+}
