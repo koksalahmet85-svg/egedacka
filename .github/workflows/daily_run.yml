@@ -1,0 +1,49 @@
+name: Cloue günlük portföy raporu
+
+on:
+  schedule:
+    # 05:47 UTC = 08:47 TSİ (Türkiye UTC+3, yaz saati yok). Hafta içi.
+    # Not: GitHub zamanlanmış işleri birkaç dakika–1 saat gecikebilir.
+    - cron: "47 5 * * 1-5"
+  workflow_dispatch: {}          # Actions sekmesinden elle çalıştırma
+
+permissions:
+  contents: write                # portfoy.json ve raporu repoya geri yazmak için
+
+concurrency:
+  group: cloue-portfoy
+  cancel-in-progress: false      # iki çalışma aynı anda durumu bozmasın
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: portfoy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: portfoy/requirements.txt
+
+      - name: Bağımlılıklar
+        run: pip install -r requirements.txt
+
+      - name: Motoru çalıştır
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python portfolio_engine.py
+
+      - name: Durumu repoya kaydet
+        if: success()
+        run: |
+          git config user.name  "cloue-bot"
+          git config user.email "cloue-bot@users.noreply.github.com"
+          git add portfoy.json raporlar/
+          git diff --cached --quiet || git commit -m "Günlük rapor $(date -u +%F)"
+          for i in 1 2 3; do git pull --rebase && git push && break || sleep $((i*5)); done

@@ -4,7 +4,7 @@ Kullanım: python3 islem.py AL SPY 0.512 585.20 [--dengeleme]
 --dengeleme: bu işlem aylık/başlangıç dengelemesinin parçasıysa (son_dengeleme tarihini günceller)
 """
 import json, sys, csv, datetime as dt
-from strateji import KOK
+from portfolio_engine import ROOT as KOK
 
 d = json.loads((KOK / "portfoy.json").read_text())
 if sys.argv[1].upper() == "YATIR":
@@ -34,6 +34,8 @@ else:
     sys.exit("İşlem AL veya SAT olmalı")
 if "--dengeleme" in sys.argv:
     d["son_dengeleme"] = str(dt.date.today())
+    if d.get("rotasyon_aday"):
+        d["rotasyon"] = d["rotasyon_aday"]   # bu ayın uydu ağırlıkları kalıcılaşır
 (KOK / "portfoy.json").write_text(json.dumps(d, indent=2, ensure_ascii=False))
 with open(KOK / "islemler.csv", "a", newline="") as f:
     csv.writer(f).writerow([dt.date.today(), islem, s, adet, fiyat, round(tutar, 2), ""])
