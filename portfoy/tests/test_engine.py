@@ -73,6 +73,35 @@ def test_core_never_exits():
     assert not r["orders"]
 
 
+
+
+def test_monthly_same_picks_buys_only_topk():
+    adj = prices(); px = adj.iloc[-1]
+    rot = pe.target_weights(adj, CFG); tgt = pe.combine(rot, CFG)
+    pos = {t: w * 1000 / px[t] for t, w in tgt.items()}
+    st = state(nakit=1000.0, pozisyonlar=pos, rotasyon=rot, son_dengeleme="2000-01-01")
+    r = pe.decide(st, adj, adj, CFG)
+    assert r["reason"].startswith("KATKI") and len(r["orders"]) <= CFG["contribution_topk"]
+    assert all(o["side"] == "AL" for o in r["orders"])
+
+
+def test_monthly_changed_picks_full_rebalance():
+    adj = prices(); px = adj.iloc[-1]
+    rot = {"VWO": 1.0}; tgt = pe.combine(rot, CFG)
+    pos = {t: w * 1000 / px[t] for t, w in tgt.items()}
+    st = state(nakit=0.0, pozisyonlar=pos, rotasyon=rot, son_dengeleme="2000-01-01")
+    r = pe.decide(st, adj, adj, CFG)
+    assert r["reason"] == "AYLIK REBALANCE" and any(o["side"] == "SAT" for o in r["orders"])
+
+
+def test_stale_data_rejected():
+    adj = prices()
+    try:
+        pe.check_data(adj, {}, CFG); assert False, "bayat veri kabul edildi"
+    except pe.DataQualityError:
+        pass
+
+
 if __name__ == "__main__":
     for n, f in list(globals().items()):
         if n.startswith("test_"):

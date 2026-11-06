@@ -10,8 +10,9 @@ import portfolio_engine as pe
 COST = 0.0010
 
 
-def run(cfg, start):
-    adj, _ = pe.fetch_prices(cfg, start=start, drop_partial=False)
+def run(cfg, start, adj=None, exit_rule=True):
+    if adj is None:
+        adj, _ = pe.fetch_prices(cfg, start=start, drop_partial=False)
     ret = adj.pct_change().fillna(0)
     sma = adj.rolling(cfg["sma"]).mean()
     days = adj.index[max(cfg["lookbacks"]) + 1:]
@@ -25,7 +26,7 @@ def run(cfg, start):
         new = None
         if g.month != month:
             new, month = pe.target_weights(adj.loc[:g], cfg), g.month
-        else:
+        elif exit_rule:
             for t in [t for t in w if t != cash]:
                 cnt[t] = cnt.get(t, 0) + 1 if adj.at[g, t] < sma.at[g, t] else 0
                 if cnt[t] >= cfg["exit_days"]:

@@ -60,9 +60,12 @@ CONFIG = {
     "vol_window": 60,
     "lookbacks": (21, 63, 126, 252),   # ≈ 1, 3, 6, 12 ay (işlem günü)
     "require_positive_score": False,   # True = çift momentum (skor > 0 şartı da)
-    "rebalance_threshold": 0.05,
+    "rebalance_threshold": 0.10,       # tam rebalance yalnız seçim değişirse ya da sapma > %10
+    "contribution_topk": 2,            # katkı/nakit en eksik 2 varlığa (Midas 1,5 $/emir: emir sayısını azaltır)
+    "data_max_staleness_days": 4,      # son ETF verisi bundan eskiyse rapor üretme
+    "data_max_daily_move": 0.25,       # ETF'de tek günde > %25 hareket = veri hatası şüphesi
     "exit_days": 3,
-    "min_order_usd": 10.0,
+    "min_order_usd": 50.0,
 }
 
 
@@ -135,6 +138,26 @@ def _crypto_hourly_fill(ticker: str, days: list[pd.Timestamp]) -> dict[pd.Timest
     return out
 
 
+class DataQualityError(RuntimeError):
+    pass
+
+
+def check_data(adj: pd.DataFrame, raw: dict, cfg=CONFIG) -> None:
+    """Bayat veya bozuk veriyle karar üretme: hata fırlat, Telegram'a uyarı gitsin."""
+    last = adj.index[-1]
+    age = (pd.Timestamp(dt.datetime.now(ZoneInfo("America/New_York")).date()) - last).days
+    if age > cfg["data_max_staleness_days"]:
+        raise DataQualityError(f"Son ortak kapanış {last.date()} ({age} gün eski)")
+    etfs = [t for t in adj.columns if t not in cfg["crypto"]]
+    jump = adj[etfs].pct_change().iloc[-5:].abs().max()
+    bad = jump[jump > cfg["data_max_daily_move"]]
+    if len(bad):
+        raise DataQualityError("Şüpheli günlük hareket: " + ", ".join(f"{t} {v:.0%}" for t, v in bad.items()))
+    for t in cfg["crypto"]:
+        if raw[t].index[-1] < last - pd.Timedelta(days=3):
+            raise DataQualityError(f"{t} verisi bayat: {raw[t].index[-1].date()}")
+
+
 def fetch_prices(cfg=CONFIG, start: str | None = None, period: str = "2y",
                  drop_partial: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Düzeltilmiş (adj) ve ham (close) kapanışlar; takvim = ETF işlem günleri."""
@@ -158,6 +181,7 @@ def fetch_prices(cfg=CONFIG, start: str | None = None, period: str = "2y",
         if ny.hour * 60 + ny.minute < 16 * 60 + 30:
             today = pd.Timestamp(ny.date())
             adj, close = adj[adj.index < today], close[close.index < today]
+    check_data(adj, data, cfg)
     if len(adj) < max(cfg["lookbacks"]) + 1:
         raise RuntimeError(f"Yetersiz geçmiş: {len(adj)} gün")
     return adj, close
@@ -269,30 +293,41 @@ def decide(st: dict, adj: pd.DataFrame, close: pd.DataFrame, cfg=CONFIG) -> dict
             target[cfg["cash"]] = target.get(cfg["cash"], 0) + cut
             st["rotasyon"][cfg["cash"]] = st["rotasyon"].get(cfg["cash"], 0) + st["rotasyon"].pop(t)
         target[cfg["cash"]] = target.get(cfg["cash"], 0) + st["nakit"] / value
-    elif value > 0 and st["nakit"] / value > cfg["rebalance_threshold"]:
+    elif value > 0 and st["nakit"] >= cfg["min_order_usd"]:
         reason = "KATKI"
 
-    if reason == "KATKI":
-        gap = {t: max(0.0, w * value - pos.get(t, 0) * px[t]) for t, w in target.items()}
-        tot = sum(gap.values()) or 1.0
-        for t, g in gap.items():
-            usd = g / tot * st["nakit"]
+    if reason == "AYLIK REBALANCE":
+        # Seçim aynı ve sapma bant içindeyse tam rebalance yok; yalnız nakit/katkı yerleştirilir.
+        picks_old = {t for t in st.get("rotasyon", {}) if t != cfg["cash"]}
+        picks_new = {t for t in rot if t != cfg["cash"]}
+        inv = value - st["nakit"]  # sapma, nakit hariç yatırılmış kısım üzerinden ölçülür
+        inv_w = {t: a * px[t] / inv for t, a in pos.items()} if inv > 0 else {}
+        drift = max(abs(target.get(t, 0) - inv_w.get(t, 0)) for t in set(target) | set(pos))
+        if picks_old == picks_new and drift <= cfg["rebalance_threshold"]:
+            st["son_dengeleme"], st["rotasyon"] = str(last_day.date()), rot
+            reason = (f"AYLIK — seçim değişmedi, sapma %{drift*100:.0f} ≤ %{cfg['rebalance_threshold']*100:.0f}"
+                      + ("; nakit yerleştiriliyor" if st["nakit"] >= cfg["min_order_usd"] else "; işlem yok"))
+            if st["nakit"] >= cfg["min_order_usd"]:
+                reason = "KATKI · " + reason
+
+    if reason and reason.startswith("KATKI"):
+        gap = {t: w * value - pos.get(t, 0) * px[t] for t, w in target.items()}
+        gap = {t: g for t, g in gap.items() if g > 0}
+        pick = sorted(gap, key=gap.get, reverse=True)[: cfg["contribution_topk"]]
+        tot = sum(gap[t] for t in pick) or 1.0
+        for t in pick:
+            usd = min(gap[t], st["nakit"] * gap[t] / tot) if len(pick) > 1 else st["nakit"]
             if usd >= cfg["min_order_usd"]:
                 orders.append({"side": "AL", "ticker": t, "qty": usd / px[t], "price": float(px[t]), "usd": usd})
-    elif reason:
+    elif reason and not reason.startswith("AYLIK —"):
         names = set(target) | set(pos)
-        drift = max(abs(target.get(t, 0) - cur_w.get(t, 0)) for t in names)
-        if reason == "AYLIK REBALANCE" and drift < cfg["rebalance_threshold"] and set(target) == set(pos):
-            reason += " (fark < %5, işlem yok)"
-            st["son_dengeleme"], st["rotasyon"] = str(last_day.date()), rot
-        else:
-            for t in sorted(names, key=lambda t: target.get(t, 0) - cur_w.get(t, 0)):  # önce satışlar
-                delta = target.get(t, 0) * value / px[t] - pos.get(t, 0)
-                if abs(delta * px[t]) >= cfg["min_order_usd"]:
-                    orders.append({"side": "SAT" if delta < 0 else "AL", "ticker": t, "qty": abs(delta),
-                                   "price": float(px[t]), "usd": abs(delta) * px[t]})
+        for t in sorted(names, key=lambda t: target.get(t, 0) - cur_w.get(t, 0)):  # önce satışlar
+            delta = target.get(t, 0) * value / px[t] - pos.get(t, 0)
+            if abs(delta * px[t]) >= cfg["min_order_usd"]:
+                orders.append({"side": "SAT" if delta < 0 else "AL", "ticker": t, "qty": abs(delta),
+                               "price": float(px[t]), "usd": abs(delta) * px[t]})
 
-    if reason and (reason.startswith("BAŞLANGIÇ") or reason.startswith("AYLIK")):
+    if reason and (reason.startswith("BAŞLANGIÇ") or reason == "AYLIK REBALANCE"):
         st["rotasyon_aday"] = rot   # emirler gerçekleşince islem.py --dengeleme ile kalıcılaşır
     unit = value / st["birim"] if st["birim"] else 1.0
     st["zirve_birim"] = max(st.get("zirve_birim", 1.0), unit)
@@ -322,6 +357,9 @@ def format_report(r: dict, cfg=CONFIG) -> str:
             f"{t} {r['current'].get(t, 0):.0%}" + (f" (SMA altı {r['counters'].get(t, 0)}/{cfg['exit_days']})"
                                                    if r['counters'].get(t, 0) else "")
             for t in r["positions"]))
+    if r["value"] > 50_000:
+        L += ["", "ℹ️ Portföy 50.000 $'ı aştı: ABD dışı yerleşikler için ABD menşeli varlıklarda 60.000 $ üstü "
+                  "ABD veraset vergisi riski var. UCITS (İrlanda) muadillerine geçişi değerlendir."]
     s = r["signals"].drop(index=cfg["cash"]).sort_values("score", ascending=False)
     L += ["", "Sinyal (skor · trend · vol60):"]
     L += [f"  {t:7s} {row.score:+6.1%} {'↑' if row.above_sma else '↓'} {row.vol:5.1%}" for t, row in s.iterrows()]
