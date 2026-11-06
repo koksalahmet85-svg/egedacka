@@ -115,12 +115,40 @@ def fetch_one(ticker: str, start: str | None = None, period: str = "2y", retries
     raise RuntimeError(f"{ticker} verisi alınamadı: {last_err}")
 
 
+def _crypto_hourly_fill(ticker: str, days: list[pd.Timestamp]) -> dict[pd.Timestamp, float]:
+    """Yahoo günlük kripto barı eksikse: o günün 16:00 ET (ABD kapanışı) saatlik fiyatını kullan."""
+    out: dict[pd.Timestamp, float] = {}
+    try:
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=1mo&interval=60m"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            j = json.load(r)["chart"]["result"][0]
+        ts = pd.to_datetime(j["timestamp"], unit="s", utc=True).tz_convert("America/New_York")
+        s = pd.Series(j["indicators"]["quote"][0]["close"], index=ts).dropna()
+        for d in days:
+            cut = pd.Timestamp(d.date()).tz_localize("America/New_York") + pd.Timedelta(hours=16)
+            w = s[(s.index <= cut) & (s.index > cut - pd.Timedelta(hours=6))]
+            if len(w):
+                out[d] = float(w.iloc[-1])
+    except Exception as e:
+        log.warning("%s saatlik doldurma başarısız: %s", ticker, e)
+    return out
+
+
 def fetch_prices(cfg=CONFIG, start: str | None = None, period: str = "2y",
                  drop_partial: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Düzeltilmiş (adj) ve ham (close) kapanışlar; takvim = ETF işlem günleri."""
     data = {t: fetch_one(t, start, period) for t in universe(cfg)}
     etfs = [t for t in universe(cfg) if t not in cfg["crypto"]]
     cal = pd.concat([data[t]["adj"] for t in etfs], axis=1).dropna().index
+    for t in cfg["crypto"]:  # son 20 işlem gününde eksik kripto barlarını saatlik veriyle tamamla
+        missing = [d for d in cal[-20:] if d not in data[t].index]
+        if missing:
+            fill = _crypto_hourly_fill(t, missing)
+            log.info("%s eksik gün %s -> saatlikten doldurulan %d", t, [str(d.date()) for d in missing], len(fill))
+            if fill:
+                add = pd.DataFrame({"adj": fill, "close": fill})
+                data[t] = pd.concat([data[t], add]).sort_index()
     def align(col):
         return pd.DataFrame({t: data[t][col].reindex(cal.union(data[t].index)).ffill().reindex(cal)
                              for t in universe(cfg)}).dropna()
