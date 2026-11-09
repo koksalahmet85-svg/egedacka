@@ -338,6 +338,38 @@ def decide(st: dict, adj: pd.DataFrame, close: pd.DataFrame, cfg=CONFIG) -> dict
 
 
 # ----------------------------------------------------------------------------- rapor
+# ----------------------------------------------------------------------------- piyasa bağlamı (ekonomist)
+def market_context() -> dict | None:
+    """Bilgi amaçlı makro/piyasa göstergeleri. KARAR KURALI DEĞİLDİR; hata verirse rapor yine üretilir."""
+    try:
+        vix = fetch_one("^VIX", period="3mo", retries=2)["close"]
+        tnx = fetch_one("^TNX", period="3mo", retries=2)["close"]
+        irx = fetch_one("^IRX", period="3mo", retries=2)["close"]
+        spy = fetch_one("SPY", period="1y", retries=2)["close"]
+        return {"vix": float(vix.iloc[-1]), "vix_chg5": float(vix.iloc[-1] - vix.iloc[-6]),
+                "curve": float(tnx.iloc[-1] - irx.iloc[-1]), "y10": float(tnx.iloc[-1]),
+                "spy_dd": float(spy.iloc[-1] / spy.max() - 1)}
+    except Exception as e:
+        log.warning("Piyasa bağlamı alınamadı: %s", e)
+        return None
+
+
+def _vix_label(v: float) -> str:
+    return "sakin" if v < 15 else "normal" if v < 20 else "gergin" if v < 30 else "stresli" if v < 40 else "panik"
+
+
+def format_context(c: dict | None) -> list[str]:
+    if not c:
+        return ["Piyasa durumu: veri alınamadı."]
+    dd = c["spy_dd"]
+    phase = ("zirveye yakın" if dd > -0.05 else "düzeltme (−%5…−%10)" if dd > -0.10
+             else "derin düzeltme (−%10…−%20)" if dd > -0.20 else "ayı piyasası (< −%20)")
+    return ["Piyasa durumu (bilgi amaçlı, karar kuralı değil):",
+            f"  VIX {c['vix']:.1f} ({_vix_label(c['vix'])}, 5 günde {c['vix_chg5']:+.1f})",
+            f"  S&P 500 52h zirveden {dd:+.1%} → {phase}",
+            f"  Getiri eğrisi 10Y−3A {c['curve']:+.2f} puan ({'pozitif' if c['curve'] > 0 else 'TERS — tarihsel resesyon öncüsü'}), 10Y %{c['y10']:.2f}"]
+
+
 def format_report(r: dict, cfg=CONFIG) -> str:
     L = [f"Cloue Portföy · son kapanış {r['date']}",
          f"Değer {r['value']:,.2f} $ · Yatırılan {r['invested']:,.0f} $ · Getiri {r['ret']:+.2%} · Zirveden {r['dd']:.2%}", ""]
@@ -345,10 +377,20 @@ def format_report(r: dict, cfg=CONFIG) -> str:
         L.append(f"⚠️ İŞLEM GÜNÜ — {r['reason']}")
         L.append("Önce satışlar. ABD seansı 17:30 TSİ; ~15 dk sonra limit emir (alış +%0,2 / satış −%0,2):")
         for o in r["orders"]:
-            L.append(f"  {o['side']:3s} {o['ticker']:5s} {o['qty']:.3f} adet @ {o['price']:.2f} ≈ {o['usd']:,.2f} $")
+            lim = o["price"] * (1.002 if o["side"] == "AL" else 0.998)
+            L.append(f"  {o['side']:3s} {o['ticker']:7s} {o['qty']:.3f} adet · ≈ {o['usd']:,.2f} $ · limit {lim:.2f}")
+        fee = sum(1.5 for o in r["orders"] if not o["ticker"].endswith("-USD"))
+        vix = (r.get("context") or {}).get("vix", 0)
+        L += [f"Tahmini Midas ücreti: {fee:.1f} $ ({fee / max(r['value'], 1):.2%})",
+              "Emir rehberi: 17:45–23:30 TSİ arası gir (seans 17:30–00:00); ilk 15 ve son 10 dakikadan kaçın (spread geniş).",
+              "  Limit dolmazsa kovalama — ertesi sabahki raporla yeniden değerlendirilir.",
+              "  Kripto satırları Midas Kripto'da TL karşılığıyla; ETF'ler Midas Yatırım'da."]
+        if vix >= 30:
+            L.append("  VIX ≥ 30: spread'ler açılır, sadece limit emir kullan, emirleri bölme.")
         L.append("Gerçekleşen adet/fiyatları Cloue'ya yaz.")
     else:
         L.append(f"✅ İşlem yok{(' — ' + r['reason']) if r['reason'] else ''}")
+    L += [""] + format_context(r.get("context"))
     L += ["", f"Çekirdek %{cfg['core_weight']*100:.0f}: " + ", ".join(f"{t} {w:.0%}" for t, w in cfg["core"].items()),
           "Uydu (rotasyon): " + ", ".join(f"{t} {w:.0%}" for t, w in sorted(r["rotation"].items(), key=lambda x: -x[1]))]
     L += ["Toplam hedef: " + ", ".join(f"{t} {w:.0%}" for t, w in sorted(r["target"].items(), key=lambda x: -x[1]))]
@@ -381,6 +423,7 @@ def main(argv=None) -> int:
         st = load_state()
         adj, close = fetch_prices()
         r = decide(st, adj, close)
+        r["context"] = market_context()
         text = format_report(r)
     except Exception as e:
         log.exception("Çalışma başarısız")
