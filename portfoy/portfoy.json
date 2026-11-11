@@ -5,14 +5,14 @@
   "pozisyonlar": {},
   "son_dengeleme": null,
   "alt_sayac": {},
-  "son_sayac_gunu": "2026-11-09",
+  "son_sayac_gunu": "2026-11-10",
   "yatirilan": 1000.0,
   "birim": 1000.0,
   "zirve_birim": 1.0,
   "rotasyon": {},
   "rotasyon_aday": {
-    "AVUV": 0.341,
-    "VEA": 0.2847,
-    "DBMF": 0.3742
+    "AVUV": 0.3434,
+    "DBMF": 0.371,
+    "VEA": 0.2856
   }
 }
