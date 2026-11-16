@@ -1,15 +1,24 @@
 {
   "baslangic_tarihi": "2026-11-05",
   "baslangic_sermaye": 1000.0,
-  "nakit": 1000.0,
-  "pozisyonlar": {},
-  "son_dengeleme": null,
+  "nakit": 275.37867,
+  "pozisyonlar": {
+    "NTSX": 5.0,
+    "AVUV": 1.5,
+    "VEA": 2.4,
+    "GLD": 0.221
+  },
+  "son_dengeleme": "2026-11-16",
   "alt_sayac": {},
   "son_sayac_gunu": "2026-11-13",
   "yatirilan": 1000.0,
   "birim": 1000.0,
   "zirve_birim": 1.0,
-  "rotasyon": {},
+  "rotasyon": {
+    "AVUV": 0.343,
+    "DBMF": 0.368,
+    "VEA": 0.289
+  },
   "rotasyon_aday": {
     "AVUV": 0.343,
     "DBMF": 0.368,
