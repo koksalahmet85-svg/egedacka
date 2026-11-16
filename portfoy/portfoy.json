@@ -1,12 +1,13 @@
 {
   "baslangic_tarihi": "2026-11-05",
   "baslangic_sermaye": 1000.0,
-  "nakit": 275.37867,
+  "nakit": 16.278669999999977,
   "pozisyonlar": {
     "NTSX": 5.0,
     "AVUV": 1.5,
     "VEA": 2.4,
-    "GLD": 0.221
+    "GLD": 0.221,
+    "DBMF": 8.0
   },
   "son_dengeleme": "2026-11-16",
   "alt_sayac": {},
