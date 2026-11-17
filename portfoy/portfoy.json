@@ -10,8 +10,12 @@
     "DBMF": 8.0
   },
   "son_dengeleme": "2026-11-16",
-  "alt_sayac": {},
-  "son_sayac_gunu": "2026-11-13",
+  "alt_sayac": {
+    "AVUV": 0,
+    "DBMF": 0,
+    "VEA": 1
+  },
+  "son_sayac_gunu": "2026-11-16",
   "yatirilan": 1000.0,
   "birim": 1000.0,
   "zirve_birim": 1.0,
