@@ -35,12 +35,14 @@ elif islem == "SAT":
         sys.exit(f"Elde {d['pozisyonlar'].get(s,0)} {s} var, {adet} satılamaz")
     d["nakit"] += tutar
     d["pozisyonlar"][s] -= adet
+    d.get("bekleyen_cikis", {}).pop(s, None)
     if d["pozisyonlar"][s] < 1e-6:
         d["pozisyonlar"].pop(s); d["alt_sayac"].pop(s, None)
 else:
     sys.exit("İşlem AL veya SAT olmalı")
 if "--dengeleme" in sys.argv:
     d["son_dengeleme"] = str(dt.date.today())
+    d["bekleyen_cikis"] = {}
     if d.get("rotasyon_aday"):
         d["rotasyon"] = d["rotasyon_aday"]   # bu ayın uydu ağırlıkları kalıcılaşır
 (KOK / "portfoy.json").write_text(json.dumps(d, indent=2, ensure_ascii=False))

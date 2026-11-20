@@ -102,6 +102,18 @@ def test_stale_data_rejected():
         pass
 
 
+
+
+def test_pending_exit_repeats_until_sold():
+    adj = prices(); px = adj.iloc[-1]
+    rot = pe.target_weights(adj, CFG); tgt = pe.combine(rot, CFG)
+    pos = {t: w * 1000 / px[t] for t, w in tgt.items()}; pos["VEA"] = 100 / px["VEA"]
+    st = state(nakit=0.0, pozisyonlar=pos, rotasyon=rot, son_dengeleme=str(adj.index[-1].date()),
+               bekleyen_cikis={"VEA": 1.0}, son_sayac_gunu=str(adj.index[-1].date()))
+    r = pe.decide(st, adj, adj, CFG)
+    assert r["reason"].startswith("BEKLEYEN") and any(o["side"] == "SAT" and o["ticker"] == "VEA" for o in r["orders"])
+
+
 if __name__ == "__main__":
     for n, f in list(globals().items()):
         if n.startswith("test_"):

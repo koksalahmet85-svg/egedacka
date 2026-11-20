@@ -158,12 +158,20 @@ def check_data(adj: pd.DataFrame, raw: dict, cfg=CONFIG) -> None:
             raise DataQualityError(f"{t} verisi bayat: {raw[t].index[-1].date()}")
 
 
+STALE: dict[str, str] = {}
+
+
 def fetch_prices(cfg=CONFIG, start: str | None = None, period: str = "2y",
                  drop_partial: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Düzeltilmiş (adj) ve ham (close) kapanışlar; takvim = ETF işlem günleri."""
     data = {t: fetch_one(t, start, period) for t in universe(cfg)}
     etfs = [t for t in universe(cfg) if t not in cfg["crypto"]]
-    cal = pd.concat([data[t]["adj"] for t in etfs], axis=1).dropna().index
+    # takvim: ETF'lerin en az yarısının verisi olan günler; tek tük gecikmeli ETF'ler (Yahoo bazen
+    # küçük ETF'lerin son barını geç yayınlar) en fazla 3 gün ileri doldurulur ve raporda işaretlenir
+    panel = pd.concat([data[t]["adj"] for t in etfs], axis=1)
+    cal = panel.index[panel.notna().sum(axis=1) >= len(etfs) / 2]
+    global STALE
+    STALE = {t: str(data[t].index[-1].date()) for t in etfs if data[t].index[-1] < cal[-1]}
     for t in cfg["crypto"]:  # son 20 işlem gününde eksik kripto barlarını saatlik veriyle tamamla
         missing = [d for d in cal[-20:] if d not in data[t].index]
         if missing:
@@ -173,7 +181,7 @@ def fetch_prices(cfg=CONFIG, start: str | None = None, period: str = "2y",
                 add = pd.DataFrame({"adj": fill, "close": fill})
                 data[t] = pd.concat([data[t], add]).sort_index()
     def align(col):
-        return pd.DataFrame({t: data[t][col].reindex(cal.union(data[t].index)).ffill().reindex(cal)
+        return pd.DataFrame({t: data[t][col].reindex(cal.union(data[t].index)).ffill(limit=3).reindex(cal)
                              for t in universe(cfg)}).dropna()
     adj, close = align("adj"), align("close")
     if drop_partial:  # seans bitmeden çalışırsa bugünün yarım barını at
@@ -289,9 +297,18 @@ def decide(st: dict, adj: pd.DataFrame, close: pd.DataFrame, cfg=CONFIG) -> dict
         for t in exits:  # yalnız uydu payını sat: mevcut ağırlığın uydu oranı kadarı
             share = (1 - cfg["core_weight"]) * st["rotasyon"][t] / old_total[t]
             cut = cur_w[t] * share
+            st.setdefault("bekleyen_cikis", {})[t] = share   # islem.py SAT ile temizlenir
             target[t] -= cut
             target[cfg["cash"]] = target.get(cfg["cash"], 0) + cut
             st["rotasyon"][cfg["cash"]] = st["rotasyon"].get(cfg["cash"], 0) + st["rotasyon"].pop(t)
+        target[cfg["cash"]] = target.get(cfg["cash"], 0) + st["nakit"] / value
+    elif any(t in pos for t in st.get("bekleyen_cikis", {})):
+        pend = {t: f for t, f in st["bekleyen_cikis"].items() if t in pos}
+        reason = "BEKLEYEN ÇIKIŞ (önceki sinyal uygulanmadı): " + ", ".join(pend)
+        target = dict(cur_w)
+        for t, f in pend.items():
+            target[t] -= cur_w[t] * f
+            target[cfg["cash"]] = target.get(cfg["cash"], 0) + cur_w[t] * f
         target[cfg["cash"]] = target.get(cfg["cash"], 0) + st["nakit"] / value
     elif value > 0 and st["nakit"] >= cfg["min_order_usd"]:
         reason = "KATKI"
@@ -390,6 +407,8 @@ def format_report(r: dict, cfg=CONFIG) -> str:
         L.append("Gerçekleşen adet/fiyatları Cloue'ya yaz.")
     else:
         L.append(f"✅ İşlem yok{(' — ' + r['reason']) if r['reason'] else ''}")
+    if STALE:
+        L += ["", "⚠️ Gecikmeli veri (son bar ileri dolduruldu): " + ", ".join(f"{t} {d}" for t, d in STALE.items())]
     L += [""] + format_context(r.get("context"))
     L += ["", f"Çekirdek %{cfg['core_weight']*100:.0f}: " + ", ".join(f"{t} {w:.0%}" for t, w in cfg["core"].items()),
           "Uydu (rotasyon): " + ", ".join(f"{t} {w:.0%}" for t, w in sorted(r["rotation"].items(), key=lambda x: -x[1]))]
