@@ -11,22 +11,23 @@
   },
   "son_dengeleme": "2026-11-16",
   "alt_sayac": {
-    "AVUV": 2,
+    "AVUV": 3,
     "DBMF": 0
   },
-  "son_sayac_gunu": "2026-11-23",
+  "son_sayac_gunu": "2026-11-24",
   "yatirilan": 1000.0,
   "birim": 1000.0,
   "zirve_birim": 1.0,
   "rotasyon": {
-    "AVUV": 0.343,
     "DBMF": 0.368,
-    "BIL": 0.289
+    "BIL": 0.632
   },
   "rotasyon_aday": {
     "AVUV": 0.343,
     "DBMF": 0.368,
     "VEA": 0.289
   },
-  "bekleyen_cikis": {}
+  "bekleyen_cikis": {
+    "AVUV": 1.0
+  }
 }
