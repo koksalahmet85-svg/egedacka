@@ -15,14 +15,14 @@ if sys.argv[1].upper() == "YATIR":
     (KOK / "portfoy.json").write_text(json.dumps(d, indent=2, ensure_ascii=False))
     with open(KOK / "islemler.csv", "a", newline="") as f:
         csv.writer(f).writerow([dt.date.today(), "YATIR", "NAKIT", "", "", tutar, f"birim {yeni:.4f}"])
-    sys.exit(f"Katkı kaydedildi: {tutar} $ | toplam yatırılan {d['yatirilan']} $")
+    print(f"Katkı kaydedildi: {tutar} $ | toplam yatırılan {d['yatirilan']} $"); sys.exit(0)
 if sys.argv[1].upper() == "UCRET":
     # python3 islem.py UCRET 6.0  -> komisyon nakitten düşülür (getiriye yansır)
     tutar = float(sys.argv[2]); d["nakit"] -= tutar
     (KOK / "portfoy.json").write_text(json.dumps(d, indent=2, ensure_ascii=False))
     with open(KOK / "islemler.csv", "a", newline="") as f:
         csv.writer(f).writerow([dt.date.today(), "UCRET", "NAKIT", "", "", -tutar, "Midas komisyon"])
-    sys.exit(f"Ücret kaydedildi: {tutar} $ | Nakit: {d['nakit']:.2f} $")
+    print(f"Ücret kaydedildi: {tutar} $ | Nakit: {d['nakit']:.2f} $"); sys.exit(0)
 islem, s, adet, fiyat = sys.argv[1].upper(), sys.argv[2].upper(), float(sys.argv[3]), float(sys.argv[4])
 tutar = adet * fiyat
 if islem == "AL":
