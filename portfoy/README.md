@@ -43,6 +43,11 @@ AVUV←VBR (korelasyon 0,97), NTSX←0,9·SPY+0,6·(IEF−BIL) (0,96), DBMF←se
 
 **Veri kalitesi koruması:** son kapanış 4 günden eskiyse, ETF'de tek günde >%25 hareket varsa veya kripto verisi bayatsa rapor üretilmez, Telegram'a hata gider.
 
+## Günlük deneme hesabı (sanal 500 $) — `gunluk_deneme.py`
+Gerçek para kullanmaz. Connors RSI(2) SPY: RSI2<10 ve fiyat>SMA200 → al; kapanış>SMA5 → sat; 1,5 $/emir ücret dahil.
+Backtest 2008→2026: ücretsiz +%5,5/yıl, Midas ücretiyle +%0,2/yıl, maxDD −%30 (BIL aynı dönem +%1,3, son 1 yıl +%3,7).
+Her sabah raporda aynı 500 $'ın BIL'deki değeriyle yan yana gösterilir. Karar noktası: 3 ay (2026-02-25).
+
 ## Dosyalar
 - `portfolio_engine.py` — veri (yfinance → yedek doğrudan Yahoo API, tekrar denemeli), sinyal, karar, rapor, durum (`portfoy.json`, atomik yazım).
 - `telegram_notifier.py` — Telegram Bot API, parçalama + 429/ağ hatası toleransı.

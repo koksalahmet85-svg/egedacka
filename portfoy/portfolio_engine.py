@@ -444,6 +444,12 @@ def main(argv=None) -> int:
         r = decide(st, adj, close)
         r["context"] = market_context()
         text = format_report(r)
+        try:  # sanal günlük deneme hesabı (gerçek parayı etkilemez)
+            import gunluk_deneme
+            if not a.dry_run:
+                text += "\n" + "\n".join(gunluk_deneme.format_section(gunluk_deneme.step(adj, close)))
+        except Exception as e:
+            log.warning("Deneme hesabı çalışmadı: %s", e)
     except Exception as e:
         log.exception("Çalışma başarısız")
         send(f"❌ Cloue motoru hata verdi, rapor üretilemedi: {type(e).__name__}: {e}")
